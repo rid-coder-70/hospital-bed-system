@@ -1,18 +1,56 @@
-node_modules
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
 .env
-venv
-.next
-dist
-.vscode
-.DS_Store   
+.env.local
+.env.development
+.env.production
+
+# Next.js
+.next/
+out/
+dist/
+build/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
 *.log
-*.cache
+
+# Cache
+.cache/
 *.tmp
+
+# Backup files
 *.bak
-*.swp
-.idea
+
+# Editor / IDE files
+.vscode/
+.idea/
+*.iml
 *.sublime-project
 *.sublime-workspace
-*.iml
-*.pyc
-__pycache__
+
+# Mac system files
+.DS_Store
+
+# Swap files
+*.swp
+
+# OS files
+Thumbs.db
+
+# Database dumps
+*.sql
+
+# Docker
+docker-compose.override.yml
