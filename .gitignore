@@ -3,3 +3,16 @@ node_modules
 venv
 .next
 dist
+.vscode
+.DS_Store   
+*.log
+*.cache
+*.tmp
+*.bak
+*.swp
+.idea
+*.sublime-project
+*.sublime-workspace
+*.iml
+*.pyc
+__pycache__
