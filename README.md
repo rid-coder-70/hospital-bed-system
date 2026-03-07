@@ -98,7 +98,7 @@ This ensures patients are directed to the **nearest hospital with available reso
 Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/ai-hospital-bed-availability-system.git
+git clone https://github.com/rid-coder-70/hospital-bed-system
 ```
 
 Install frontend
