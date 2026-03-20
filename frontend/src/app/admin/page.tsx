@@ -385,7 +385,7 @@ export default function AdminPage() {
                           <select value={newUser.hospitalId} onChange={e => setNewUser(prev => ({ ...prev, hospitalId: e.target.value }))}
                             className="w-full appearance-none bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-700 p-3 pr-8 rounded-xl text-sm font-medium text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
                             <option value="">— No hospital —</option>
-                            {hospitalsList.map(h => (
+                            {hospitals.map(h => (
                               <option key={h.id} value={h.id}>{h.name}</option>
                             ))}
                           </select>

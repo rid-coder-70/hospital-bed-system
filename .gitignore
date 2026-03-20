@@ -53,4 +53,4 @@ Thumbs.db
 *.sql
 
 # Docker
-docker-compose.override.yml
+docker-compose.override.ymlPRODUCTION_CREDENTIALS.txt

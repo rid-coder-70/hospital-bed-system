@@ -61,35 +61,61 @@ Explore the deep technical mechanics driving HealthBed AI:
 
 ---
 
-## ⚙️ How to Run Locally
+## ⚙️ How to Run Locally (Development Mode)
 
-### 1. Start the PostgreSQL Database
-Ensure you have a database named `hospital_bed_db` running on port `5432`.
-Run the scripts inside the `/database` folder to seed the initial tables and hospital data.
+### 1. Database Setup
+1. Ensure you have **PostgreSQL** installed and running on port `5432`.
+2. Create a database named `hospital_bed_db`.
+3. Run the scripts inside the `/database` folder to seed the initial tables and hospital data:
+   ```bash
+   psql -U postgres -d hospital_bed_db -f database/schema.sql
+   psql -U postgres -d hospital_bed_db -f database/seed-data.sql
+   ```
 
-### 2. Boot the API Server
-```bash
-cd backend
-npm install
-npm run dev
-```
-*(Runs on port 5000)*
+### 2. Backend API Setup
+1. Open a terminal and navigate to the backend:
+   ```bash
+   cd backend
+   npm install
+   ```
+2. Create a `.env` file in the `backend` folder (you can copy `.env.example`):
+   ```
+   PORT=5000
+   NODE_ENV=development
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=hospital_bed_db
+   DB_USER=postgres
+   DB_PASSWORD=your_postgres_password
+   JWT_SECRET=super_secret_dev_key
+   ```
+3. Start the backend development server:
+   ```bash
+   npm run dev
+   ```
+   *(Runs on http://localhost:5000)*
 
-### 3. Boot the Frontend UI
-```bash
-cd frontend
-npm install
-npm run dev
-```
-*(Runs on port 3000)*
+### 3. Frontend UI Setup
+1. Open a new terminal and navigate to the frontend:
+   ```bash
+   cd frontend
+   npm install
+   ```
+2. Create a `.env.local` file in the `frontend` folder:
+   ```
+   NEXT_PUBLIC_API_URL=http://localhost:5000
+   ```
+3. Start the Next.js development server:
+   ```bash
+   npm run dev
+   ```
+   *(Runs on http://localhost:3000)*
 
 ---
 
-### Test Credentials
-To experience the platform, log into `http://localhost:3000/auth/login` using:
+## 🔐 Test Credentials
 
-| Role | Email | Password |
-|------|-------|----------|
-| **System Admin** | `admin@healthbed.com` | `admin123` |
-| **Hospital Admin** | `hospital@healthbed.com` | `admin123` |
-| **Patient** | `patient@healthbed.com` | `admin123` |
+To experience the platform, log into `http://localhost:3000/auth/login`.
+
+> **Note:** For security reasons, the default weak passwords have been removed from this open-source repository. 
+> If you are setting up the project locally for the first time, you must generate your own bcrypt hashes in `database/seed-data.sql` or contact the repository owner for access to the local development test credentials.

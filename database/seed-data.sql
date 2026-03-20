@@ -79,9 +79,11 @@ ON CONFLICT (vehicle_number) DO NOTHING;
 
 INSERT INTO users (name, email, password_hash, role, hospital_id) VALUES
 
-  ('System Admin', 'admin@healthbed.com', '$2b$10$Q6GXzxkC/sPxfNVhGYtDFeH4ewvbcvevr4W1GSFaic55SDfk2XFWS', 'admin', NULL),
+  ('System Admin', 'admin@healthbed.com', '$2b$12$RJlNI58OnUWpOAweR4zrPu/Is40pczq8szmmc4qIcE0emUNenprAe', 'admin', NULL),
 
-  ('DMCH Admin', 'hospital@healthbed.com', '$2b$10$Q6GXzxkC/sPxfNVhGYtDFeH4ewvbcvevr4W1GSFaic55SDfk2XFWS', 'hospital_admin', 'a1b2c3d4-0001-0001-0001-000000000001'),
+  ('DMCH Admin', 'hospital@healthbed.com', '$2b$12$BG09If9e6tuMtsKgooP5MefSou2SResQL3xkp51Ga3xe5zhFW0dUi', 'hospital_admin', 'a1b2c3d4-0001-0001-0001-000000000001'),
 
-  ('Test Patient', 'patient@healthbed.com', '$2b$10$Q6GXzxkC/sPxfNVhGYtDFeH4ewvbcvevr4W1GSFaic55SDfk2XFWS', 'user', NULL)
+  ('Test Patient', 'patient@healthbed.com', '$2b$12$cglWKqBFLygHSq8zJZQUROgfkSn.yXaFK.kyaz0PQNbDYcravSxmW', 'user', NULL),
+
+  ('Dispatcher 1', 'dispatcher@healthbed.com', '$2b$12$q3MXJaMfieJ49GaEWvrI/OeDJD8m.43oq0MmuuxZqsLSkNWnTIXGq', 'dispatcher', NULL)
 ON CONFLICT (email) DO NOTHING;
