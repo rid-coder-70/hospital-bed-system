@@ -1,0 +1,31 @@
+graph TD
+    %% Core Frontends
+    Patient[Public Directory / Map] --> |REST API| LoadBalancer[Nginx / API Gateway]
+    HospitalAdmin[Hospital Dashboard] --> |REST API| LoadBalancer
+    SysAdmin[System Admin Panel] --> |REST API| LoadBalancer
+
+    %% Real-Time Events
+    Patient -.-> |Socket.io| WSS[WebSocket Event Bus]
+    HospitalAdmin -.-> |Socket.io| WSS
+    SysAdmin -.-> |Socket.io| WSS
+
+    %% Backend Services
+    LoadBalancer --> NodeServer[Node.js / Express Core]
+    WSS <--> NodeServer
+
+    %% Data Layer
+    NodeServer <--> |pg pool| Postgres[(PostgreSQL Database)]
+
+    %% Internal Data Modules
+    subgraph Data Layer
+        Postgres --> |Pessimistic Locking / FOR UPDATE| Concurrency[Concurrency Control]
+        Postgres --> |JSONB Fields| DynamicWards[Dynamic Ward Storage]
+    end
+
+    %% Event Specifics
+    subgraph Real-Time WebSockets
+        NodeServer -.-> |Emit: bedUpdate| WSS
+        WSS -.-> |Broadcast| Patient
+        NodeServer -.-> |Emit: incomingAmbulance| WSS
+        WSS -.-> |Native OS Push Notification| HospitalAdmin
+    end

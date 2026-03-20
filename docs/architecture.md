@@ -1,91 +1,69 @@
-# Architecture Documentation
+# System Architecture & Data Flow
 
-## 1. System Overview
+![System Architecture](architecture.png)
 
-The **AI Hospital Bed Availability System** is designed to provide real-time hospital bed availability, intelligent emergency routing, and seamless ambulance dispatch for healthcare providers and first responders. The platform integrates a modern web frontend, a backend API, an AI routing microservice, and a PostgreSQL database to support reliable, scalable operations.
+HealthBed AI is built on a scalable, real-time event-driven architecture designed for high availability and millisecond-latency updates across all connected clients.
 
-## 2. High Level Architecture
+## High-Level Architecture Diagram
 
-The system is composed of four primary layers:
+```mermaid
+graph TD
+    %% Core Frontends
+    Patient[Public Directory / Map] --> |REST API| LoadBalancer[Nginx / API Gateway]
+    HospitalAdmin[Hospital Dashboard] --> |REST API| LoadBalancer
+    SysAdmin[System Admin Panel] --> |REST API| LoadBalancer
 
-1. **Frontend** (Next.js + Tailwind CSS) — provides the user interface for patients, dispatchers, and hospital administrators.
-2. **Backend API** (Node.js + Express) — handles business logic, authentication, data access, and real-time messaging.
-3. **AI Routing Service** (Python + FastAPI) — evaluates hospital capacity and patient location to recommend best routing.
-4. **Database** (PostgreSQL) — stores hospital metadata, bed inventory, ambulance status, and historical events.
+    %% Real-Time Events
+    Patient -.-> |Socket.io| WSS[WebSocket Event Bus]
+    HospitalAdmin -.-> |Socket.io| WSS
+    SysAdmin -.-> |Socket.io| WSS
 
-`mermaid
-flowchart LR
-  subgraph UI [Frontend]
-    A[Next.js App] -->|REST / WebSocket| B[Backend API]
-  end
+    %% Backend Services
+    LoadBalancer --> NodeServer[Node.js / Express Core]
+    WSS <--> NodeServer
 
-  subgraph API [Backend]
-    B --> C[(PostgreSQL)]
-    B --> D[Socket.io Realtime]
-    B --> E[AI Routing Service]
-  end
+    %% Data Layer
+    NodeServer <--> |pg pool| Postgres[(PostgreSQL Database)]
 
-  subgraph AI [AI Service]
-    E[FastAPI] -->|HTTP| F[Routing Logic]
-  end
+    %% Internal Data Modules
+    subgraph Data Layer
+        Postgres --> |Pessimistic Locking / FOR UPDATE| Concurrency[Concurrency Control]
+        Postgres --> |JSONB Fields| DynamicWards[Dynamic Ward Storage]
+    end
 
-  subgraph DB [Database]
-    C[(PostgreSQL)]
-  end
-`
+    %% Event Specifics
+    subgraph Real-Time WebSockets
+        NodeServer -.-> |Emit: 'bedUpdate'| WSS
+        WSS -.-> |Broadcast| Patient
+        NodeServer -.-> |Emit: 'incomingAmbulance'| WSS
+        WSS -.-> |Native OS Push Notification| HospitalAdmin
+    end
+```
 
-## 3. Microservice Architecture
+## Core Workflows
 
-This application follows a microservice-aligned architecture with clearly separated responsibilities:
+### 1. Real-Time Bed Availability Sync
+1. **Hospital Admin** updates bed counts (General or ICU) via their dashboard.
+2. The Action is sent to the Node.js backend (`POST /api/beds/:hospitalId/adjust`).
+3. Backend updates the specific hospital row in PostgreSQL.
+4. An `INSERT` occurs in the `history_events` table to maintain an audit trail for analytics.
+5. The Express controller triggers the `Socket.io` instance to emit a `bedUpdate` event containing the delta.
+6. All connected users (Public Map View and Patient Directory) receive the WebSocket event and the React state instantly updates rendering the new counts without a page refresh or polling.
 
-- **Frontend Service**: Single-page app built with Next.js and Tailwind CSS.
-- **Backend API Service**: Express-based REST API with Socket.io for real-time updates.
-- **AI Routing Service**: FastAPI service that computes optimal hospital routing using geospatial and capacity data.
-- **Database Service**: PostgreSQL storing all persistent state.
+### 2. Autonomous Ambulance Dispatch & Reservation
+1. **Dispatcher** clicks "Initiate Dispatch" from a specific hospital card on the live map.
+2. Request travels to the backend (`POST /api/dispatches`).
+3. Backend initiates a **PostgreSQL Transaction**.
+4. A pessimistic `SELECT ... FOR UPDATE` query locks the specific hospital row to prevent race conditions from concurrent dispatch requests.
+5. The system verifies if `availableBeds > 0`. If true, the bed is temporarily "reserved" by decrementing the count.
+6. The transaction commits. A new dispatch record is saved.
+7. `Socket.io` fires `incomingAmbulance` explicitly targeted to that Hospital Admin's WebSocket room.
+8. The Admin's dashboard flashes a pulsing red banner. Native browser Push Notifications fire instantly alerting them even if the tab is backgrounded.
 
-Each service can be deployed independently and scaled based on load. Services communicate primarily via HTTP and WebSocket.
-
-## 4. Component Diagram
-
-`mermaid
-flowchart TD
-  UI[User Interface (Next.js)] -->|REST API| API[Backend API (Express)]
-  API -->|SQL Queries| DB[(PostgreSQL)]
-  API -->|WebSocket| WS[Socket.io]
-  API -->|HTTP| AI[AI Routing Service (FastAPI)]
-  AI -->|Read Only| DB
-`
-
-## 5. Data Flow
-
-1. A user requests hospital availability via the web UI.
-2. The UI calls the Backend API (/beds/availability).
-3. The Backend queries PostgreSQL for current bed inventory.
-4. For routing requests, the Backend forwards the request to the AI Routing Service.
-5. The AI service returns a ranked list of hospitals; the Backend responds to the UI.
-6. Real-time updates (bed changes, ambulance status) are pushed via Socket.io to connected clients.
-
-## 6. Technology Stack
-
-- **Frontend**: Next.js, Tailwind CSS, Leaflet/Mapbox
-- **Backend**: Node.js, Express.js, Socket.io
-- **AI Service**: Python, FastAPI, geospatial algorithms
-- **Database**: PostgreSQL
-- **DevOps**: Docker, Vercel, Railway
-
-## 7. Scalability Design
-
-- **Frontend**: Deploy to CDN-backed platforms (Vercel) for horizontal scaling.
-- **Backend**: Stateless API instances behind a load balancer, with connection pooling for PostgreSQL.
-- **AI Service**: Scale separately based on routing request volume; cache frequent routing results.
-- **Database**: Use read replicas for analytics; partition large tables and use connection pooling.
-- **Realtime**: Socket.io can be scaled using Redis as a message broker for multiple API instances.
-
-## 8. Security Considerations
-
-- Use TLS (HTTPS) for all external communication.
-- Authenticate users and APIs using JWTs or OAuth.
-- Validate and sanitize all input data at the API boundary.
-- Apply role-based access control (RBAC) for admin and dispatcher features.
-- Protect database credentials using secrets management and environment variables.
-- Rate-limit sensitive endpoints to mitigate abuse.
+### 3. Role-Based Access & System Admin Approval Flow
+1. **New User** registers as `hospital_admin` via `/api/auth/signup`.
+2. Backend assigns the user a `pending` status.
+3. User attempts to login but receives a `403 Forbidden` until approved.
+4. **System Administrator** logs in, pulls the `pending` list via `/api/admin/pending-admins`.
+5. SysAdmin assigns a specific `hospital_id` via a secure dropdown and clicks Approve (`PUT /api/admin/approve-admin/:id`).
+6. The `pending` status updates to `approved` and their specific hospital is natively linked to their profile ID. The Hospital Admin can now log in and manage the facility.

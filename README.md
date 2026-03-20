@@ -45,6 +45,14 @@ Built with a **Node.js/Express backend**, **PostgreSQL database**, and a stunnin
 
 ---
 
+## 📚 Technical Documentation
+
+Explore the deep technical mechanics driving HealthBed AI:
+1. **[System Architecture & Data Flow](docs/architecture.md)** — Explores the WebSocket event bus topology and real-time synchronization flows.
+2. **[System Design & Core Mechanisms](docs/system-design.md)** — Deep dive into our Pessimistic Locking database strategy and dynamic JSONB capacity engine.
+
+---
+
 ## 📂 Project Structure
 
 - `/backend`: The RESTful API layer and WebSocket server.
