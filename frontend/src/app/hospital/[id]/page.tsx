@@ -19,6 +19,9 @@ export default function HospitalDetailsPage() {
   const [dispatchLoading, setDispatchLoading] = useState(false)
   const [dispatchResult, setDispatchResult] = useState<any[] | null>(null)
   const [showDispatch, setShowDispatch] = useState(false)
+  const [dispatchModal, setDispatchModal] = useState(false)
+  const [dispatchData, setDispatchData] = useState({ patientName: '', conditionDetails: '', etaMinutes: 10 })
+  const [dispatchingData, setDispatchingData] = useState(false)
 
   useEffect(() => {
     const fetchHospital = async () => {
@@ -65,6 +68,29 @@ export default function HospitalDetailsPage() {
     }
   }
 
+  const submitManualDispatch = async () => {
+    if (!dispatchData.patientName) return toast.error("Patient name is required");
+    setDispatchingData(true);
+    try {
+      const res = await fetch(`${API}/api/dispatches`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hospitalId: hospital.id,
+          ...dispatchData
+        })
+      });
+      if (!res.ok) throw new Error("Dispatch failed")
+      toast.success("🚨 Dispatch signal sent! Hospital is tracking arrival.")
+      setDispatchModal(false)
+      setDispatchData({ patientName: '', conditionDetails: '', etaMinutes: 10 })
+    } catch(err) {
+      toast.error("Failed to send dispatch signal")
+    } finally {
+      setDispatchingData(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-300">
@@ -97,6 +123,7 @@ export default function HospitalDetailsPage() {
   const genLoad = Math.max(0, 100 - (hospital.availableBeds / Math.max(1, hospital.totalBeds)) * 100).toFixed(1)
   const icuLoad = Math.max(0, 100 - (hospital.availableIcuBeds / Math.max(1, hospital.icuBeds)) * 100).toFixed(1)
   return (
+    <>
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-300">
       <Navbar />
       <main className="flex-1 pt-24 md:pt-32 pb-24 md:pb-16 px-4 md:px-6 lg:px-8 max-w-6xl mx-auto w-full">
@@ -158,16 +185,21 @@ export default function HospitalDetailsPage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 md:max-w-xs shrink-0 pt-2">
-              {hospital.specialties?.length > 0 ? (
-                 hospital.specialties.map((spec: string, i: number) => (
-                  <span key={i} className="bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 text-xs font-semibold px-3 py-1.5 rounded-full">
-                    {spec}
-                  </span>
-                ))
-              ) : (
-                <span className="text-sm text-gray-400 italic">No specialties listed</span>
-              )}
+            <div className="flex flex-col gap-4 md:max-w-xs shrink-0 pt-2 w-full md:w-auto">
+              <div className="flex flex-wrap gap-2">
+                {hospital.specialties?.length > 0 ? (
+                   hospital.specialties.map((spec: string, i: number) => (
+                    <span key={i} className="bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 text-xs font-semibold px-3 py-1.5 rounded-full">
+                      {spec}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400 italic">No specialties listed</span>
+                )}
+              </div>
+              <button onClick={() => setDispatchModal(true)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-500/20 active:scale-95 animate-[pulse_2s_ease-in-out_infinite]">
+                 <AlertTriangle className="w-5 h-5" /> Dispatch Emergency
+              </button>
             </div>
           </div>
         </motion.div>
@@ -246,16 +278,56 @@ export default function HospitalDetailsPage() {
                 / {hospital.icuBeds} empty
               </span>
             </div>
-             <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden shadow-inner mb-2">
-               <div 
-                  className={`h-full rounded-full transition-all duration-1000 ${hasIcuBeds ? 'bg-gradient-to-r from-rose-500 to-pink-500' : 'bg-red-500'}`}
-                  style={{ width: `${icuLoad}%` }}
-               ></div>
-            </div>
-            <p className="text-xs text-right font-medium text-gray-500 dark:text-gray-400">
-              {icuLoad}% Full
-            </p>
           </motion.div>
+          {hospital.wardDetails?.map((ward: any, idx: number) => {
+             const hasWardBeds = ward.available > 0;
+             const wardLoad = Math.max(0, 100 - (ward.available / Math.max(1, ward.max)) * 100).toFixed(1);
+             return (
+              <motion.div 
+                key={idx}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 + (idx * 0.1) }}
+                className={`bg-white dark:bg-slate-900 rounded-3xl p-8 border ${hasWardBeds ? 'border-indigo-100 dark:border-indigo-900/30 shadow-lg shadow-indigo-500/5' : 'border-gray-200 dark:border-slate-800 opacity-80'} relative overflow-hidden flex flex-col`}
+              >
+                 <div className={`absolute top-0 right-0 w-2 h-full ${hasWardBeds ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex items-center gap-3 text-indigo-900 dark:text-indigo-400">
+                    <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+                      <Bed className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-bold text-lg">{ward.name} Ward</h3>
+                  </div>
+                  {hasWardBeds ? (
+                     <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
+                       <CheckCircle2 className="w-4 h-4" /> Available
+                     </span>
+                  ) : (
+                     <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse">
+                       <AlertTriangle className="w-4 h-4" /> Full
+                     </span>
+                  )}
+                </div>
+                <div className="flex items-end gap-3 mb-6 flex-1">
+                  <span className={`text-6xl font-black ${hasWardBeds ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-600'}`}>
+                    {ward.available}
+                  </span>
+                  <span className="text-xl font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    / {ward.max} empty
+                  </span>
+                </div>
+                 <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden shadow-inner mb-2 mt-auto">
+                   <div 
+                      className={`h-full rounded-full transition-all duration-1000 ${hasWardBeds ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-red-500'}`}
+                      style={{ width: `${wardLoad}%` }}
+                   ></div>
+                </div>
+                <p className="text-xs text-right font-medium text-gray-500 dark:text-gray-400">
+                  {wardLoad}% Full
+                </p>
+              </motion.div>
+             )
+          })}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           <motion.div 
@@ -406,6 +478,53 @@ export default function HospitalDetailsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Dispatch Modal */}
+      <AnimatePresence>
+        {dispatchModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden"
+            >
+              <div className="bg-red-600 p-6 flex justify-between items-center text-white">
+                <h2 className="text-xl font-bold flex items-center gap-2"><AlertTriangle className="w-6 h-6" /> Emergency Dispatch</h2>
+                <button onClick={() => setDispatchModal(false)} className="bg-red-700 hover:bg-red-800 p-1.5 rounded-lg transition"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">Patient Name *</label>
+                  <input type="text" value={dispatchData.patientName} onChange={e => setDispatchData(prev => ({...prev, patientName: e.target.value}))}
+                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-500 outline-none text-gray-900 dark:text-white"
+                    placeholder="e.g., John Doe" autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">Condition Details</label>
+                  <input type="text" value={dispatchData.conditionDetails} onChange={e => setDispatchData(prev => ({...prev, conditionDetails: e.target.value}))}
+                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-500 outline-none text-gray-900 dark:text-white"
+                    placeholder="e.g., Severe Trauma, Heart Attack"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">ETA (Minutes)</label>
+                  <div className="flex items-center gap-3">
+                    <input type="range" min="1" max="60" value={dispatchData.etaMinutes} onChange={e => setDispatchData(prev => ({...prev, etaMinutes: parseInt(e.target.value)}))}
+                      className="flex-1 accent-red-600"
+                    />
+                    <span className="font-bold text-lg text-red-600 min-w-12 text-center">{dispatchData.etaMinutes}m</span>
+                  </div>
+                </div>
+                <button onClick={submitManualDispatch} disabled={dispatchingData}
+                  className="w-full mt-4 bg-red-600 hover:bg-red-700 disabled:opacity-70 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-500/20"
+                >
+                  {dispatchingData ? "Transmitting..." : "Send Dispatch Signal"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
+    </>
   )
 }

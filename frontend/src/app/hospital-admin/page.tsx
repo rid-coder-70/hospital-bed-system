@@ -19,17 +19,22 @@ interface Hospital {
   availableBeds: number
   icuBeds: number
   availableIcuBeds: number
+  wardDetails?: any[]
   lastUpdated: string
   isActive: boolean
 }
 
 export default function HospitalAdminPage() {
-  const { bedUpdates, connected } = useSocket()
+  const { bedUpdates, connected, dispatchEvents } = useSocket()
   const [hospital, setHospital] = useState<Hospital | null>(null)
   const [inventory, setInventory] = useState({ general: 0, icu: 0 })
+  const [wardDetails, setWardDetails] = useState<any[]>([])
+  const [showAddWard, setShowAddWard] = useState(false)
+  const [newWard, setNewWard] = useState({ name: "Maternity", available: 0, max: 10 })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [historyEvents, setHistoryEvents] = useState<any[]>([])
+  const [dispatches, setDispatches] = useState<any[]>([])
   const [userInfo, setUserInfo] = useState<any>(null)
 
   const fetchMyHospital = useCallback(async (hospitalId: string, token: string) => {
@@ -42,7 +47,9 @@ export default function HospitalAdminPage() {
       const h = data.data
       setHospital(h)
       setInventory({ general: h.availableBeds, icu: h.availableIcuBeds })
+      setWardDetails(h.wardDetails || [])
       fetchHistory(hospitalId, token)
+      fetchDispatches(hospitalId, token)
     } catch {
       toast.error("Could not load your hospital data")
     } finally {
@@ -57,6 +64,16 @@ export default function HospitalAdminPage() {
       })
       const data = await res.json()
       setHistoryEvents(data.data || [])
+    } catch {}
+  }
+
+  const fetchDispatches = async (hospitalId: string, token: string) => {
+    try {
+      const res = await fetch(`${API}/api/dispatches/${hospitalId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = await res.json()
+      setDispatches(data.data || [])
     } catch {}
   }
 
@@ -94,15 +111,70 @@ export default function HospitalAdminPage() {
           availableIcuBeds: relevant.availableIcuBeds,
           lastUpdated: relevant.lastUpdated
         } : prev)
+        if (relevant.wardDetails) {
+          setWardDetails(relevant.wardDetails)
+        }
       }
     }
   }, [bedUpdates, hospital])
+
+  // Sync Dispatches
+  useEffect(() => {
+    if (!hospital) return;
+    const myNewEvents = dispatchEvents.filter(d => d.hospital_id === hospital.id);
+    if (myNewEvents.length > 0) {
+      setDispatches(prev => {
+        let copy = [...prev];
+        let changed = false;
+        myNewEvents.forEach(evt => {
+          const idx = copy.findIndex(existing => existing.id === evt.id);
+          if (idx > -1) {
+             if (JSON.stringify(copy[idx]) !== JSON.stringify(evt)) { copy[idx] = evt; changed = true; }
+          } else {
+             copy = [evt, ...copy];
+             changed = true;
+             if (evt.status === 'incoming') {
+               toast.custom(
+                 <div className="bg-red-600 text-white p-4 rounded-xl shadow-2xl flex items-center justify-between gap-4">
+                   <AlertTriangle className="w-8 h-8 animate-pulse" />
+                   <div>
+                     <h4 className="font-bold text-lg leading-tight">INCOMING DISPATCH</h4>
+                     <p className="text-sm opacity-90">{evt.patient_name} - ETA: {evt.eta_minutes}m</p>
+                   </div>
+                 </div>, { duration: 8000 }
+               )
+             }
+          }
+        });
+        return changed ? copy : prev;
+      });
+    }
+  }, [dispatchEvents, hospital])
 
   const handleAdjust = (type: "general" | "icu", op: "add" | "sub") => {
     setInventory(prev => ({
       ...prev,
       [type]: op === "add" ? prev[type] + 1 : Math.max(0, prev[type] - 1)
     }))
+  }
+
+  const handleAdjustWard = (index: number, op: "add" | "sub") => {
+    setWardDetails(prev => {
+      const copy = [...prev]
+      if (op === "add") {
+        copy[index].available = Math.min(copy[index].max, copy[index].available + 1)
+      } else {
+        copy[index].available = Math.max(0, copy[index].available - 1)
+      }
+      return copy;
+    })
+  }
+
+  const handleAddCustomWard = () => {
+    if (newWard.max <= 0) return toast.error("Max capacity must be at least 1");
+    if (wardDetails.find(w => w.name === newWard.name)) return toast.error("Ward already exists");
+    setWardDetails(prev => [...prev, newWard])
+    setShowAddWard(false)
   }
 
   const handleSave = async () => {
@@ -116,7 +188,8 @@ export default function HospitalAdminPage() {
         body: JSON.stringify({
           hospitalId: hospital.id,
           availableBeds: inventory.general,
-          availableIcuBeds: inventory.icu
+          availableIcuBeds: inventory.icu,
+          wardDetails: wardDetails
         })
       })
       if (!res.ok) {
@@ -129,6 +202,41 @@ export default function HospitalAdminPage() {
       toast.error(err.message || "Update failed")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleReserveBed = async (dispatchId: string) => {
+    try {
+      const token = localStorage.getItem("authToken")
+      const res = await fetch(`${API}/api/dispatches/${dispatchId}/reserve`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Reservation failed")
+      }
+      toast.success("✅ Bed Locked & Reserved!")
+      // Fetch will happen via sockets, but let's manual update
+      fetchDispatches(hospital?.id!, token!)
+      fetchMyHospital(hospital?.id!, token!)
+    } catch(err: any) {
+      toast.error(err.message || "Failed to reserve bed")
+    }
+  }
+
+  const handleDispatchStatus = async (dispatchId: string, status: string) => {
+    try {
+      const token = localStorage.getItem("authToken")
+      await fetch(`${API}/api/dispatches/${dispatchId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status })
+      })
+      toast.success(`Dispatch marked as ${status}`)
+      fetchDispatches(hospital?.id!, token!)
+    } catch(err) {
+      toast.error("Action failed")
     }
   }
 
@@ -247,6 +355,58 @@ export default function HospitalAdminPage() {
         </div>
 
         {}
+        <div className="mb-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-slate-800">
+             <div className="bg-indigo-600 dark:bg-indigo-900 px-6 py-4 flex items-center justify-between">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                   <AlertTriangle className="w-5 h-5 text-indigo-200" /> Active Emergency Dispatches
+                </h3>
+                <span className="bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-lg">
+                  {dispatches.filter(d => d.status === 'incoming').length} INCOMING
+                </span>
+             </div>
+             <div className="p-6">
+                {dispatches.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No dispatches found. You're clear!</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {dispatches.filter(d => d.status !== 'completed').map((d, i) => (
+                      <div key={d.id} className={`p-5 rounded-2xl border ${d.status === 'incoming' ? 'border-red-200 bg-red-50 dark:bg-red-900/10' : 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/10'}`}>
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${d.status === 'incoming' ? 'bg-red-600 text-white animate-pulse' : 'bg-emerald-600 text-white'}`}>{d.status}</span>
+                            <h4 className="font-bold text-gray-900 dark:text-gray-100 text-lg mt-1.5">{d.patient_name}</h4>
+                          </div>
+                          <div className="text-right">
+                            <span className="block text-2xl font-black text-gray-900 dark:text-gray-100">{d.eta_minutes}m</span>
+                            <span className="text-xs text-gray-500 opacity-80 uppercase font-bold tracking-widest">ETA</span>
+                          </div>
+                        </div>
+                        <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-4 bg-white/50 dark:bg-black/20 p-2 rounded-lg border border-white/20 dark:border-slate-700/50">{d.condition_details}</p>
+                        
+                        {d.status === 'incoming' ? (
+                          <button onClick={() => handleReserveBed(d.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition flex justify-center items-center gap-2">
+                             <Save className="w-4 h-4" /> Reserve 1 Bed Instantly
+                          </button>
+                        ) : (
+                           <div className="grid grid-cols-2 gap-2">
+                             <button onClick={() => handleDispatchStatus(d.id, 'completed')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl transition">
+                               Arrived & Admitted
+                             </button>
+                             <button onClick={() => handleDispatchStatus(d.id, 'canceled')} className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 rounded-xl transition">
+                               Cancelled
+                             </button>
+                           </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+             </div>
+          </motion.div>
+        </div>
+
+        {}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {}
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
@@ -281,6 +441,64 @@ export default function HospitalAdminPage() {
                   </div>
                 </div>
               ))}
+
+              {wardDetails.map((ward, idx) => (
+                <div key={idx} className="p-5 rounded-2xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <Bed className="w-4 h-4 text-indigo-500" /> {ward.name} Ward
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Max capacity: {ward.max}</p>
+                  </div>
+                  <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-900 p-1.5 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+                    <button onClick={() => handleAdjustWard(idx, "sub")}
+                      className="w-9 h-9 rounded-lg bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 transition flex items-center justify-center">
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <span className="font-black text-xl w-10 text-center text-gray-900 dark:text-gray-100">{ward.available}</span>
+                    <button onClick={() => handleAdjustWard(idx, "add")} disabled={ward.available >= ward.max}
+                      className="w-9 h-9 rounded-lg bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 transition flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {!showAddWard ? (
+                <button onClick={() => setShowAddWard(true)} className="w-full border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-2xl py-4 flex items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors">
+                  <Plus className="w-4 h-4" /> Add Specific Ward
+                </button>
+              ) : (
+                <div className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-900/10">
+                  <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-3 text-sm">Add New Ward Details</h4>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="col-span-2">
+                       <label className="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-400">Ward Type</label>
+                       <select value={newWard.name} onChange={e => setNewWard(prev => ({...prev, name: e.target.value}))} className="w-full text-sm p-2 rounded-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 outline-none">
+                         <option value="Maternity">Maternity</option>
+                         <option value="Burn Unit">Burn Unit</option>
+                         <option value="CCU">CCU (Coronary Care)</option>
+                         <option value="NICU">NICU (Neonatal)</option>
+                         <option value="Pediatrics">Pediatrics</option>
+                         <option value="Surgery">Surgery</option>
+                         <option value="Trauma">Trauma</option>
+                       </select>
+                    </div>
+                    <div>
+                       <label className="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-400">Max Capacity</label>
+                       <input type="number" min={1} value={newWard.max} onChange={e => setNewWard(prev => ({...prev, max: parseInt(e.target.value) || 0}))} className="w-full text-sm p-2 rounded-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 outline-none" />
+                    </div>
+                    <div>
+                       <label className="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-400">Available Beds</label>
+                       <input type="number" min={0} value={newWard.available} onChange={e => setNewWard(prev => ({...prev, available: parseInt(e.target.value) || 0}))} className="w-full text-sm p-2 rounded-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 outline-none" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleAddCustomWard} className="flex-1 bg-indigo-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-indigo-700 transition">Save Ward</button>
+                    <button onClick={() => setShowAddWard(false)} className="px-3 bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-lg hover:bg-gray-300 dark:hover:bg-slate-700 transition">Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
             <motion.button whileTap={{ scale: 0.97 }} onClick={handleSave} disabled={saving}
               className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20">

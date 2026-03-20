@@ -30,7 +30,7 @@ router.get('/availability', async (req, res) => {
 router.put('/update', authMiddleware, requireRole('admin', 'hospital_admin'), async (req, res) => {
   const client = await db.connect();
   try {
-    const { hospitalId, availableBeds, availableIcuBeds, updatedAt } = req.body;
+    const { hospitalId, availableBeds, availableIcuBeds, wardDetails, updatedAt } = req.body;
 
     if (!hospitalId) {
       return res.status(400).json({ error: 'hospitalId is required' });
@@ -67,10 +67,10 @@ router.put('/update', authMiddleware, requireRole('admin', 'hospital_admin'), as
 
     const updated = await client.query(
       `UPDATE hospitals
-       SET available_beds = $1, available_icu_beds = $2, last_updated = $3
-       WHERE id = $4
-       RETURNING id, name, available_beds, available_icu_beds, total_beds, icu_beds, last_updated`,
-      [newAvail, newIcuAvail, updatedAt || new Date().toISOString(), hospitalId]
+       SET available_beds = $1, available_icu_beds = $2, ward_details = $3, last_updated = $4
+       WHERE id = $5
+       RETURNING id, name, available_beds, available_icu_beds, total_beds, icu_beds, ward_details, last_updated`,
+      [newAvail, newIcuAvail, JSON.stringify(wardDetails || []), updatedAt || new Date().toISOString(), hospitalId]
     );
 
     await client.query(
@@ -91,6 +91,7 @@ router.put('/update', authMiddleware, requireRole('admin', 'hospital_admin'), as
       availableIcuBeds: payload.available_icu_beds,
       totalBeds       : payload.total_beds,
       icuBeds         : payload.icu_beds,
+      wardDetails     : payload.ward_details,
       lastUpdated     : payload.last_updated,
     });
 
@@ -99,6 +100,7 @@ router.put('/update', authMiddleware, requireRole('admin', 'hospital_admin'), as
         hospitalId       : payload.id,
         availableBeds    : payload.available_beds,
         availableIcuBeds : payload.available_icu_beds,
+        wardDetails      : payload.ward_details,
         updatedAt        : payload.last_updated,
       },
     });

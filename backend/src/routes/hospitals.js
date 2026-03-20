@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
         total_beds, available_beds,
         icu_beds, available_icu_beds,
         contact_phone, contact_email,
-        specialties, is_active, last_updated
+        specialties, is_active, last_updated, ward_details
       FROM hospitals
       WHERE is_active = TRUE
     `;
@@ -49,6 +49,7 @@ router.get('/', async (req, res) => {
         availableBeds    : row.available_beds,
         icuBeds          : row.icu_beds,
         availableIcuBeds : row.available_icu_beds,
+        wardDetails      : row.ward_details || [],
         contact          : { phone: row.contact_phone, email: row.contact_email },
         specialties      : row.specialties || [],
         isActive         : row.is_active,
@@ -91,6 +92,7 @@ router.get('/:id', async (req, res) => {
         availableBeds    : row.available_beds,
         icuBeds          : row.icu_beds,
         availableIcuBeds : row.available_icu_beds,
+        wardDetails      : row.ward_details || [],
         contact          : { phone: row.contact_phone, email: row.contact_email },
         specialties      : row.specialties || [],
         isActive         : row.is_active,

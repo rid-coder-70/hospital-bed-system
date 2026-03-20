@@ -10,6 +10,7 @@ const bedRoutes      = require('./routes/beds');
 const ambulanceRoutes= require('./routes/ambulance');
 const authRoutes     = require('./routes/auth');
 const adminRoutes    = require('./routes/admin');
+const dispatchRoutes = require('./routes/dispatches');
 const { registerSocketEvents } = require('./socket/events');
 
 const app    = express();
@@ -39,6 +40,7 @@ app.use('/api/hospitals',  hospitalRoutes);
 app.use('/api/beds',       bedRoutes);
 app.use('/api/ambulance',  ambulanceRoutes);
 app.use('/api/admin',      adminRoutes);
+app.use('/api/dispatches', dispatchRoutes);
 
 app.get('/api/health', (_req, res) =>
   res.json({ status: 'ok', timestamp: new Date().toISOString() })

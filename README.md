@@ -1,132 +1,87 @@
-<div align="center">
-  <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js" />
-  <img src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=nodedotjs" />
-  <img src="https://img.shields.io/badge/PostgreSQL-Data-4169E1?style=for-the-badge&logo=postgresql" />
-  <img src="https://img.shields.io/badge/Python-FastAPI-009688?style=for-the-badge&logo=fastapi" />
-  <img src="https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=for-the-badge&logo=tailwindcss" />
-  
-  <br />
-  <br />
-  
-  <h1>🏥 HealthBed AI</h1>
-  <p><b>Intelligent Real-Time Hospital Bed Management & Emergency Routing System</b></p>
-</div>
+# HealthBed AI: Next-Generation Live Hospital Bed & Emergency Dispatch System 🏥⚡
+
+This project is a highly advanced, full-stack Hospital Management & Emergency Routing web application designed to eliminate operational friction during medical crises. 
+
+Built with a **Node.js/Express backend**, **PostgreSQL database**, and a stunning **Next.js & Tailwind CSS frontend**, the platform leverages **WebSockets (Socket.io)** for millisecond-accurate live medical data broadcasting and **Pessimistic Database Locking** to securely prevent double-booking of life-critical beds.
 
 ---
 
-**HealthBed AI** is a comprehensive, microservices-based full-stack architecture that solves critical healthcare logistics by providing **live bed availability tracking**, robust **role-based management**, and a **Python AI routing engine** for prioritizing and assigning emergency ambulance requests.
+## 🚀 Core Features & Capabilities
 
-## ✨ Core Features
+### 1. Real-Time Bed & Ward Tracking (WebSockets)
+- **Dynamic Ward Management:** Hospital Admins can dynamically register and track specialized units (e.g., *Maternity, Burn Unit, CCU, NICU, Trauma*) completely on the fly using advanced JSONB data storage in PostgreSQL.
+- **Millisecond Sync:** When an admin adjusts bed availability, `Socket.io` instantly blasts the new capacity to every open browser—meaning the public patient directory updates in real-time without refreshing.
 
-### 👥 3-Tier Multi-Role Architecture
-1. **👑 System Admin (`/admin`)**
-   - Global bird's-eye view of all system statistics.
-   - Manage all users (create, delete, edit roles).
-   - Assign dedicated `Hospital Admins` to specific hospitals in the network.
-   - Instantly activate/deactivate facilities.
-2. **🏥 Hospital Admin (`/hospital-admin`)**
-   - Locked entirely to their own specific hospital.
-   - Real-time `+/-` bed inventory control (General & ICU Wards).
-   - Occupancy bars updating dynamically via WebSockets.
-   - Comprehensive audit log of past updates with CSV export.
-3. **👤 Patient / User (`/hospital`)**
-   - Browse the public directory of all active hospitals.
-   - View real-time bed & ICU capacities system-wide.
-   - Use dynamic GPS location to locate and sort nearby hospitals.
+### 2. Autonomous Emergency Dispatch System
+- **Public Dispatch Initiation:** From the public directory, users can instantly fire an emergency dispatch signal (including Patient Name, Condition, and ETA) directly to a specific hospital.
+- **Pulsing Neon Alerts:** The exact second a dispatch is requested, a red flashing incoming alert strikes the target Hospital Admin's dashboard.
+- **Concurrency-Safe Reservations:** Admins can lock and reserve a bed for the incoming ambulance. Under the hood, the system uses Postgres `FOR UPDATE` pessimistic locking so two dispatchers can never accidentally overbook the last remaining bed.
 
-### ⚡ Real-Time WebSocket Infrastructure
-Changes pushed by a Hospital Admin instantly broadcast across the `Socket.io` network. The Patient directories and Admin dashboards immediately re-calculate occupancy percentages and available beds without a page refresh.
+### 3. AI-Assisted Routing Protocol
+- Integrates with external AI services to instantly compute the best hospital routing based on live distance/location coordinates and real-time live bed capacity.
 
-### 🧠 Python AI Microservice (FastAPI)
-Using the `Haversine` formula and scoring algorithms via `NumPy`/`SciPy`, the AI Engine factors in:
-- Geographic proximity (Distance of Patient → Hospital)
-- Required ICU beds vs. Standard Beds
-- Request Priority (Low, Medium, High, Critical)
-To instantly route ambulances to the most optimal healthcare facility.
+### 4. Interactive & Premium User Interface
+- Built with **Framer Motion** for liquid-smooth micro-animations.
+- **Beautiful Dark Mode** and glassmorphism styling ensuring an ultra-modern administrative experience.
+- Automated History Tracking that logs every single capacity change complete with timestamps.
 
 ---
 
-## 🛠 Prerequisites
+## 🛠 Tech Stack
 
-Ensure you have the following installed on your Ubuntu system:
-- **Node.js** (v18 or v20+)
-- **Python** (v3.10+)
-- **PostgreSQL** (v12+)
+**Frontend Architecture:**
+- Next.js 14+ (React)
+- TypeScript
+- Tailwind CSS & Framer Motion
+- Socket.io-client
+- React Hot Toast & Lucide Icons
+
+**Backend & Database:**
+- Node.js & Express.js
+- PostgreSQL (pg)
+- Socket.io (Real-time events)
+- JSON Web Tokens (JWT) & bcrypt (Authentication)
+- Zod (Runtime type checking)
 
 ---
 
-## 🚀 Step-by-Step Installation (Ubuntu)
+## 📂 Project Structure
 
-Follow this process exactly: open **4 separate terminal windows** inside the project folder.
+- `/backend`: The RESTful API layer and WebSocket server.
+- `/frontend`: The Next.js reactive UI application.
+- `/database`: Raw `schema.sql` and `seed-data.sql` for rapid local scaling (Contains over 40+ mapped hospitals!).
 
-### Terminal 1: Database Setup (PostgreSQL)
-Ensure Postgres is installed and running (`sudo apt install postgresql`).
+---
 
-```bash
-# 1. Create the database wrapper
-psql -U postgres -h localhost -c "CREATE DATABASE hospital_bed_db;"
+## ⚙️ How to Run Locally
 
-# 2. Inject schema (Tables, Enums, Indexes)
-psql -U postgres -h localhost -d hospital_bed_db -f database/schema.sql
+### 1. Start the PostgreSQL Database
+Ensure you have a database named `hospital_bed_db` running on port `5432`.
+Run the scripts inside the `/database` folder to seed the initial tables and hospital data.
 
-# 3. Seed demo accounts & hospitals
-psql -U postgres -h localhost -d hospital_bed_db -f database/seed-data.sql
-```
-*(Default Postgres password is `postgres`, update `.env` files if yours differs).*
-
-### Terminal 2: AI Routing Service (FastAPI)
-```bash
-cd ai-service
-
-# Create isolated Python environment (Recommended)
-python3 -m venv venv
-source venv/bin/activate
-
-# Install AI Dependencies
-pip install -r requirements.txt
-
-# Boot the engine
-uvicorn main:app --port 8000 --reload
-```
-You will see: `Uvicorn running on http://0.0.0.0:8000` *(You may see 'detail: Not Found' if visiting it on a browser, this is perfectly normal as it's an API!)*
-
-### Terminal 3: Backend REST API (Node.js)
+### 2. Boot the API Server
 ```bash
 cd backend
-
-# Install node modules
 npm install
-
-# Start Express & WebSocket Server
 npm run dev
 ```
-You will see: `✅ PostgreSQL connected` and `🚀 Server running on http://localhost:5000`
+*(Runs on port 5000)*
 
-### Terminal 4: Frontend Web App (Next.js)
+### 3. Boot the Frontend UI
 ```bash
 cd frontend
-
-# Install UI modules
 npm install
-
-# Build and start Next.js
 npm run dev
 ```
-You will see: `Local: http://localhost:3000`
+*(Runs on port 3000)*
 
 ---
 
-## 🔑 Demo Access Credentials
+### Test Credentials
+To experience the platform, log into `http://localhost:3000/auth/login` using:
 
-Once all terminals are running, simply navigate to [http://localhost:3000](http://localhost:3000) and use any of these pre-seeded accounts.
-
-| Security Clearance | Login Email | Universal Password |
-|---|---|---|
-| **System Administrator** | `admin@healthbed.com` | `admin123` |
-| **Hospital Administrator** | `hospital@healthbed.com` | `admin123` |
-| **Public Patient** | `patient@healthbed.com` | `admin123` |
-
-> *Note: Admins cannot self-register. You must login as the System Admin to create more Admins.*
-
----
-*Built with ❤️ for resilient and optimized healthcare infrastructure.*
+| Role | Email | Password |
+|------|-------|----------|
+| **System Admin** | `admin@healthbed.com` | `admin123` |
+| **Hospital Admin** | `hospital@healthbed.com` | `admin123` |
+| **Patient** | `patient@healthbed.com` | `admin123` |

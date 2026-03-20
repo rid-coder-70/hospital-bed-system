@@ -12,6 +12,7 @@ interface BedUpdateEvent {
   availableIcuBeds: number;
   totalBeds: number;
   icuBeds: number;
+  wardDetails?: any[];
   lastUpdated: string;
 }
 
@@ -19,18 +20,21 @@ interface SocketContextType {
   socket: Socket | null;
   connected: boolean;
   bedUpdates: BedUpdateEvent[];
+  dispatchEvents: any[];
 }
 
 const SocketContext = createContext<SocketContextType>({
   socket: null,
   connected: false,
   bedUpdates: [],
+  dispatchEvents: [],
 });
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const socketRef = useRef<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [bedUpdates, setBedUpdates] = useState<BedUpdateEvent[]>([]);
+  const [dispatchEvents, setDispatchEvents] = useState<any[]>([]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -44,8 +48,38 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socket.on("connect", () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
 
+    // Request Notification permission silently on mount
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+
     socket.on("bedUpdate", (data: BedUpdateEvent) => {
-      setBedUpdates((prev) => [data, ...prev].slice(0, 50)); // keep last 50
+      setBedUpdates((prev) => [data, ...prev].slice(0, 50));
+    });
+
+    socket.on("incomingAmbulance", (data: any) => {
+      setDispatchEvents((prev) => [data, ...prev].slice(0, 50));
+      // Trigger Native Browser Notification
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        new Notification("🚨 Emergency Dispatch", {
+          body: `Patient: ${data.patient_name} (ETA: ${data.eta_minutes}m) en route!`,
+          icon: "/favicon.ico" 
+        });
+      }
+    });
+
+    socket.on("dispatchUpdated", (data: any) => {
+      setDispatchEvents((prev) => {
+        const idx = prev.findIndex(d => d.id === data.id);
+        if (idx !== -1) {
+          const next = [...prev];
+          next[idx] = data;
+          return next;
+        }
+        return [data, ...prev].slice(0, 50);
+      });
     });
 
     return () => {
@@ -55,7 +89,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SocketContext.Provider
-      value={{ socket: socketRef.current, connected, bedUpdates }}
+      value={{ socket: socketRef.current, connected, bedUpdates, dispatchEvents }}
     >
       {children}
     </SocketContext.Provider>

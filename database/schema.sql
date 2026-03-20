@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS hospitals (
   contact_email       TEXT,
   specialties         TEXT[],
   is_active           BOOLEAN DEFAULT TRUE,
+  ward_details        JSONB DEFAULT '[]'::jsonb,
   last_updated        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
