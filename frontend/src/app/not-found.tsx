@@ -2,69 +2,71 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import Lottie from "lottie-react"
-import { useEffect, useState } from "react"
+import { Home, RotateCcw, AlertCircle } from "lucide-react"
 
 export default function NotFound() {
-
-  const [animationData, setAnimationData] = useState(null)
-
-  useEffect(() => {
-    fetch("/animations/robot404.json")
-      .then((res) => res.json())
-      .then((data) => setAnimationData(data))
-  }, [])
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-white text-center px-6">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-slate-950 text-center px-6 transition-colors duration-300">
+
+      {/* Animated 404 number */}
       <motion.div
-        animate={{ y: [0, -25, 0] }}
-        transition={{ duration: 3, repeat: Infinity }}
-        className="w-56 md:w-72 mb-6"
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 120, damping: 15 }}
+        className="relative mb-8"
       >
-        {animationData && (
-          <Lottie animationData={animationData} loop />
-        )}
+        <div className="text-[10rem] md:text-[14rem] font-black leading-none select-none
+                        text-gray-100 dark:text-slate-800 absolute inset-0 flex items-center justify-center blur-sm">
+          404
+        </div>
+        <div className="text-8xl md:text-9xl font-black leading-none
+                        bg-gradient-to-br from-indigo-500 via-blue-500 to-purple-600 bg-clip-text text-transparent relative z-10">
+          404
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 flex items-center justify-center mb-6"
+      >
+        <AlertCircle className="w-8 h-8" />
       </motion.div>
 
       <motion.h1
-        initial={{ opacity: 0, y: -30 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-7xl font-bold text-blue-600"
-      >
-        404
-      </motion.h1>
-
-      <motion.h2
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="text-2xl font-semibold text-gray-800 mt-4"
+        transition={{ delay: 0.4 }}
+        className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-3 tracking-tight"
       >
         Page Not Found
-      </motion.h2>
+      </motion.h1>
 
-      <p className="text-gray-600 mt-3 max-w-md">
-        Our AI robot couldn&apos;t find the page you&apos;re looking for.
-      </p>
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="text-gray-500 dark:text-gray-400 max-w-md text-sm leading-relaxed mb-10"
+      >
+        The page you&apos;re looking for doesn&apos;t exist or has been moved. Double-check the URL or navigate back to the dashboard.
+      </motion.p>
 
-      <div className="flex gap-4 mt-8 flex-wrap justify-center">
-
-        <Link
-          href="/"
-          className="bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-700 transition cursor-pointer"
-        >
-          Go Home
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="flex gap-3 flex-wrap justify-center"
+      >
+        <Link href="/"
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-500/20 transition-all">
+          <Home className="w-4 h-4" /> Go Home
         </Link>
-
-        <button
-          onClick={() => window.location.reload()}
-          className="border border-gray-300 px-6 py-3 rounded-full hover:bg-gray-100 transition cursor-pointer"
-        >
-          Reload
+        <button onClick={() => window.history.back()}
+          className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-2xl font-bold hover:bg-gray-50 dark:hover:bg-slate-800 transition-all">
+          <RotateCcw className="w-4 h-4" /> Go Back
         </button>
-
-      </div>
+      </motion.div>
 
     </div>
   )
