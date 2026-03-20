@@ -124,7 +124,6 @@ export default function HospitalAdminPage() {
     const myNewEvents = dispatchEvents.filter(d => d.hospital_id === hospital.id);
     if (myNewEvents.length === 0) return;
 
-    // Collect new (never-seen) events for toasting — do this OUTSIDE setState
     const newIncoming: any[] = [];
 
     setDispatches(prev => {
@@ -142,8 +141,6 @@ export default function HospitalAdminPage() {
       });
       return changed ? copy : prev;
     });
-
-    // Fire toasts OUTSIDE the setState updater
     newIncoming.forEach(evt => {
       toast.custom(
         <div className="bg-red-600 text-white p-4 rounded-xl shadow-2xl flex items-center gap-4">
@@ -203,7 +200,7 @@ export default function HospitalAdminPage() {
         const err = await res.json()
         throw new Error(err.error || "Update failed")
       }
-      toast.success("✅ Bed inventory updated in real-time!")
+      toast.success("Bed inventory updated in real-time!")
       fetchHistory(hospital.id, localStorage.getItem("authToken")!)
     } catch (err: any) {
       toast.error(err.message || "Update failed")
@@ -223,8 +220,7 @@ export default function HospitalAdminPage() {
         const err = await res.json()
         throw new Error(err.error || "Reservation failed")
       }
-      toast.success("✅ Bed Locked & Reserved!")
-      // Fetch will happen via sockets, but let's manual update
+      toast.success("Bed Locked & Reserved!")
       fetchDispatches(hospital?.id!, token!)
       fetchMyHospital(hospital?.id!, token!)
     } catch(err: any) {
@@ -307,11 +303,30 @@ export default function HospitalAdminPage() {
   const genLow  = inventory.general <= 5
   const icuLow  = inventory.icu <= 2
 
-  const chartData = [...historyEvents].slice(0, 15).map(e => ({
-     time: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-     Gen: e.new_available,
-     ICU: e.new_icu_available
-  })).reverse()
+  const WARD_COLORS: Record<string, string> = {
+    'Burn Unit':   '#f97316',
+    'Maternity':   '#ec4899',
+    'CCU':         '#f59e0b',
+    'NICU':        '#06b6d4',
+    'Pediatrics':  '#84cc16',
+    'Surgery':     '#7c3aed',
+    'Trauma':      '#dc2626',
+  }
+  const getWardColor = (name: string, idx: number) => {
+    const fallbacks = ['#10b981','#8b5cf6','#0ea5e9','#d97706','#e879f9']
+    return WARD_COLORS[name] || fallbacks[idx % fallbacks.length]
+  }
+
+  const chartData = [...historyEvents].slice(0, 15).map(e => {
+    const wardSnap: Record<string, number> = {}
+    wardDetails.forEach(w => { wardSnap[w.name] = w.available })
+    return {
+      time: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      Gen: e.new_available,
+      ICU: e.new_icu_available,
+      ...wardSnap
+    }
+  }).reverse()
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col font-sans">
@@ -359,6 +374,61 @@ export default function HospitalAdminPage() {
         </div>
 
         {}
+        {wardDetails.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+            className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Bed className="w-5 h-5 text-indigo-500" />
+              <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-100">Live Ward Status</h2>
+              <span className="text-xs font-bold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2.5 py-1 rounded-full">{wardDetails.length} Active</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {wardDetails.map((ward, idx) => {
+                const pct = ward.max > 0 ? Math.round(((ward.max - ward.available) / ward.max) * 100) : 0
+                const isCritical = pct >= 85
+                const wardColor = getWardColor(ward.name, idx)
+                return (
+                  <motion.div key={idx} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: idx * 0.05 }}
+                    style={{ borderColor: `${wardColor}40` }}
+                    className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
+                          style={{ color: wardColor }}>Ward</p>
+                        <h4 className="font-extrabold text-gray-900 dark:text-gray-100 text-sm leading-tight">{ward.name}</h4>
+                      </div>
+                      {isCritical && (
+                        <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-[9px] font-black px-1.5 py-0.5 rounded-md animate-pulse">CRITICAL</span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-baseline mb-1.5">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">Available</span>
+                        <span className="text-2xl font-black" style={{ color: wardColor }}>{ward.available}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 1, ease: "easeOut" }}
+                          className="h-full rounded-full"
+                          style={{ background: wardColor }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold">Occupancy</span>
+                        <span className="text-[10px] font-black" style={{ color: wardColor }}>{pct}%</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">Max: {ward.max} beds</p>
+                  </motion.div>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="col-span-1 lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
              <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
@@ -376,13 +446,30 @@ export default function HospitalAdminPage() {
                         <stop offset="5%" stopColor="#e11d48" stopOpacity={0.3}/>
                         <stop offset="95%" stopColor="#e11d48" stopOpacity={0}/>
                       </linearGradient>
+                      {wardDetails.map((w, idx) => {
+                        const c = getWardColor(w.name, idx)
+                        return (
+                          <linearGradient key={w.name} id={`ward_${w.name.replace(/\s/g,'')}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={c} stopOpacity={0.25}/>
+                            <stop offset="95%" stopColor={c} stopOpacity={0}/>
+                          </linearGradient>
+                        )
+                      })}
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
                     <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
                     <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                    <Area type="monotone" dataKey="Gen" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorGen)" />
-                    <Area type="monotone" dataKey="ICU" stroke="#e11d48" strokeWidth={3} fillOpacity={1} fill="url(#colorIcu)" />
+                    <Area type="monotone" dataKey="Gen" name="General" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorGen)" />
+                    <Area type="monotone" dataKey="ICU" name="ICU" stroke="#e11d48" strokeWidth={3} fillOpacity={1} fill="url(#colorIcu)" />
+                    {wardDetails.map((w, idx) => {
+                      const c = getWardColor(w.name, idx)
+                      return (
+                        <Area key={w.name} type="monotone" dataKey={w.name} name={w.name}
+                          stroke={c} strokeWidth={2} strokeDasharray="5 3"
+                          fillOpacity={1} fill={`url(#ward_${w.name.replace(/\s/g,'')})`} />
+                      )
+                    })}
                   </AreaChart>
                 </ResponsiveContainer>
              </div>
