@@ -1,108 +1,132 @@
-# 🏥 AI Hospital Bed Availability System
-
-A modern, full-stack microservices architecture designed to provide **real-time hospital bed availability**, intelligent **emergency routing**, and seamless **ambulance dispatch** for healthcare providers and first responders.
-
-![Architecture Flow](https://upload.wikimedia.org/wikipedia/commons/4/4b/Microservices_Architecture_Diagram.png) <!-- Update with proper screenshot -->
-
-It is heavily optimized with modern UX/UI trends utilizing `TailwindCSS` and `Framer Motion`, and powered by a high-availability backend `PostgreSQL` and WebSockets environment.
-
----
-
-## 🛠 Tech Stack
-
-- **Frontend**: Next.js (React 19), Tailwind CSS, Framer Motion, Lucide Icons.
-- **Backend API**: Node.js, Express, Socket.io (Realtime Websockets), JWT Authentication.
-- **AI Microservice**: Python, FastAPI, NumPy/SciPy (Haversine & Routing Scoring).
-- **Database**: PostgreSQL (Dockerized).
+<div align="center">
+  <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js" />
+  <img src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=nodedotjs" />
+  <img src="https://img.shields.io/badge/PostgreSQL-Data-4169E1?style=for-the-badge&logo=postgresql" />
+  <img src="https://img.shields.io/badge/Python-FastAPI-009688?style=for-the-badge&logo=fastapi" />
+  <img src="https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=for-the-badge&logo=tailwindcss" />
+  
+  <br />
+  <br />
+  
+  <h1>🏥 HealthBed AI</h1>
+  <p><b>Intelligent Real-Time Hospital Bed Management & Emergency Routing System</b></p>
+</div>
 
 ---
 
-## 🚀 Getting Started
+**HealthBed AI** is a comprehensive, microservices-based full-stack architecture that solves critical healthcare logistics by providing **live bed availability tracking**, robust **role-based management**, and a **Python AI routing engine** for prioritizing and assigning emergency ambulance requests.
 
-Follow these instructions to start the entire system natively on your local machine. Ensure you have `Node.js`, `Python 3`, `Docker`, and `npm` installed.
+## ✨ Core Features
 
-### 1️⃣ Start the PostgreSQL Database (Docker)
-The easiest way to start the database and seed it automatically is via Docker Compose.
+### 👥 3-Tier Multi-Role Architecture
+1. **👑 System Admin (`/admin`)**
+   - Global bird's-eye view of all system statistics.
+   - Manage all users (create, delete, edit roles).
+   - Assign dedicated `Hospital Admins` to specific hospitals in the network.
+   - Instantly activate/deactivate facilities.
+2. **🏥 Hospital Admin (`/hospital-admin`)**
+   - Locked entirely to their own specific hospital.
+   - Real-time `+/-` bed inventory control (General & ICU Wards).
+   - Occupancy bars updating dynamically via WebSockets.
+   - Comprehensive audit log of past updates with CSV export.
+3. **👤 Patient / User (`/hospital`)**
+   - Browse the public directory of all active hospitals.
+   - View real-time bed & ICU capacities system-wide.
+   - Use dynamic GPS location to locate and sort nearby hospitals.
+
+### ⚡ Real-Time WebSocket Infrastructure
+Changes pushed by a Hospital Admin instantly broadcast across the `Socket.io` network. The Patient directories and Admin dashboards immediately re-calculate occupancy percentages and available beds without a page refresh.
+
+### 🧠 Python AI Microservice (FastAPI)
+Using the `Haversine` formula and scoring algorithms via `NumPy`/`SciPy`, the AI Engine factors in:
+- Geographic proximity (Distance of Patient → Hospital)
+- Required ICU beds vs. Standard Beds
+- Request Priority (Low, Medium, High, Critical)
+To instantly route ambulances to the most optimal healthcare facility.
+
+---
+
+## 🛠 Prerequisites
+
+Ensure you have the following installed on your Ubuntu system:
+- **Node.js** (v18 or v20+)
+- **Python** (v3.10+)
+- **PostgreSQL** (v12+)
+
+---
+
+## 🚀 Step-by-Step Installation (Ubuntu)
+
+Follow this process exactly: open **4 separate terminal windows** inside the project folder.
+
+### Terminal 1: Database Setup (PostgreSQL)
+Ensure Postgres is installed and running (`sudo apt install postgresql`).
+
 ```bash
-# 1. Navigate into the docker directory
-cd database
-cd ../docker
+# 1. Create the database wrapper
+psql -U postgres -h localhost -c "CREATE DATABASE hospital_bed_db;"
 
-# 2. Spin up the Database container silently
-docker compose up -d
+# 2. Inject schema (Tables, Enums, Indexes)
+psql -U postgres -h localhost -d hospital_bed_db -f database/schema.sql
 
-# 3. Apply the SQL tables and seed data
-sleep 5
-docker exec -i hospital_db psql -U postgres -d hospital_bed_db < ../database/schema.sql
-docker exec -i hospital_db psql -U postgres -d hospital_bed_db < ../database/seed-data.sql
+# 3. Seed demo accounts & hospitals
+psql -U postgres -h localhost -d hospital_bed_db -f database/seed-data.sql
 ```
+*(Default Postgres password is `postgres`, update `.env` files if yours differs).*
 
-### 2️⃣ Start the AI Routing Service (FastAPI)
-This service manages the intelligent routing algorithms for incoming ambulances/patients.
+### Terminal 2: AI Routing Service (FastAPI)
 ```bash
-# 1. Open a new terminal and navigate to ai-service
 cd ai-service
 
-# 2. Create and activate a Virtual Environment
+# Create isolated Python environment (Recommended)
 python3 -m venv venv
 source venv/bin/activate
 
-# 3. Install dependencies
+# Install AI Dependencies
 pip install -r requirements.txt
 
-# 4. Start the Uvicorn server (Defaults to Port 8000)
+# Boot the engine
 uvicorn main:app --port 8000 --reload
 ```
-_The AI Service will now be available on `http://localhost:8000`_
+You will see: `Uvicorn running on http://0.0.0.0:8000` *(You may see 'detail: Not Found' if visiting it on a browser, this is perfectly normal as it's an API!)*
 
-### 3️⃣ Start the Backend REST API & WebSockets (Node.js)
-This handles user endpoints, live bed updates, and proxies requests to the AI Service.
+### Terminal 3: Backend REST API (Node.js)
 ```bash
-# 1. Open a new terminal and navigate to backend
 cd backend
 
-# 2. Install dependencies
+# Install node modules
 npm install
 
-# 3. Start the node server in dev mode
+# Start Express & WebSocket Server
 npm run dev
 ```
-_The Backend Service will map SQL and start on `http://localhost:5000`_
+You will see: `✅ PostgreSQL connected` and `🚀 Server running on http://localhost:5000`
 
-### 4️⃣ Start the Frontend Web App (Next.js)
-The beautifully designed, responsive Next.js application.
+### Terminal 4: Frontend Web App (Next.js)
 ```bash
-# 1. Open a final terminal and navigate to frontend
 cd frontend
 
-# 2. Install dependencies
+# Install UI modules
 npm install
 
-# 3. Start the UI server
+# Build and start Next.js
 npm run dev
 ```
-_The Frontend Web Application will start on `http://localhost:3000` (or `3002` if port is used)._
+You will see: `Local: http://localhost:3000`
 
 ---
 
-## 📋 Features to Explore
+## 🔑 Demo Access Credentials
 
-### 🔐 Multi-Role Authentication
-Navigate to `/auth/login` or `/auth/signup`. You will see interactive tabs allowing you to select between a **Patient** or **Hospital Admin** experience.
+Once all terminals are running, simply navigate to [http://localhost:3000](http://localhost:3000) and use any of these pre-seeded accounts.
 
-### 🏥 Hospital Directory
-Navigate to `/hospital`. You will see a beautiful Grid of live hospitals pulled directly from the SQL database. Search through them and watch the animated UI/UX filter them live.
+| Security Clearance | Login Email | Universal Password |
+|---|---|---|
+| **System Administrator** | `admin@healthbed.com` | `admin123` |
+| **Hospital Administrator** | `hospital@healthbed.com` | `admin123` |
+| **Public Patient** | `patient@healthbed.com` | `admin123` |
 
-### 📈 Live Dashboard Command Center
-Navigate to `/dashboard`. This provides a high-level `Hospital Admin / Dispatcher` view of the entire operational capacity across the network. Live WebSocket connections reflect updates here automatically.
-
-### 🚑 AI Intelligent Routing (API Level)
-You can directly trigger the Python `ai-service` routing by running a cURL against the backend. It will rank the nearest available hospitals that have ICU functionality via Haversine distance computations:
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"patientLocation": {"lat": 23.75, "lng": 90.38}, "requiredIcu": true, "priority": "high"}' \
-  http://localhost:5000/api/beds/route
-```
+> *Note: Admins cannot self-register. You must login as the System Admin to create more Admins.*
 
 ---
-*Created by the HealthBed AI team.*
+*Built with ❤️ for resilient and optimized healthcare infrastructure.*

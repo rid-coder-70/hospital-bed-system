@@ -27,13 +27,18 @@ router.get('/availability', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-router.put('/update', authMiddleware, requireRole('admin', 'hospital_admin', 'dispatcher'), async (req, res) => {
+router.put('/update', authMiddleware, requireRole('admin', 'hospital_admin'), async (req, res) => {
   const client = await db.connect();
   try {
     const { hospitalId, availableBeds, availableIcuBeds, updatedAt } = req.body;
 
     if (!hospitalId) {
       return res.status(400).json({ error: 'hospitalId is required' });
+    }
+
+
+    if (req.user.role === 'hospital_admin' && req.user.hospitalId !== hospitalId) {
+      return res.status(403).json({ error: 'You can only update your own hospital\'s inventory' });
     }
 
     await client.query('BEGIN');

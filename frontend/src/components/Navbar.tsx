@@ -30,6 +30,11 @@ const Navbar = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('userRole');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+
+    document.cookie = 'authToken=; path=/; max-age=0';
+    document.cookie = 'userRole=; path=/; max-age=0';
     setUserRole(null);
     window.location.href = '/auth/login';
   };
@@ -57,7 +62,7 @@ const Navbar = () => {
           transition={{ duration: 0.6 }}
           className="backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b md:border border-gray-200/50 dark:border-slate-700/50 md:shadow-lg md:rounded-full w-full max-w-7xl px-4 sm:px-6 py-3 flex justify-between items-center"
         >
-          {/* Logo */}
+          {}
           <Link href="/">
             <motion.h1
               whileHover={{ scale: 1.05 }}
@@ -75,9 +80,14 @@ const Navbar = () => {
             <Link href="/hospital" className={getNavClass("/hospital")}>
               <FaHospital className="w-4 h-4" /> <span>Directory</span>
             </Link>
-            {(userRole === "hospital_admin" || userRole === "admin") && (
-              <Link href="/dashboard" className={getNavClass("/dashboard")}>
-                <FaTachometerAlt className="w-4 h-4" /> <span>Dashboard</span>
+            {userRole === "hospital_admin" && (
+              <Link href="/hospital-admin" className={getNavClass("/hospital-admin")}>
+                <FaTachometerAlt className="w-4 h-4" /> <span>My Hospital</span>
+              </Link>
+            )}
+            {userRole === "admin" && (
+              <Link href="/admin" className={getNavClass("/admin")}>
+                <FaTachometerAlt className="w-4 h-4 text-rose-500" /> <span>Admin Panel</span>
               </Link>
             )}
 
@@ -144,10 +154,16 @@ const Navbar = () => {
             <FaHospital className="w-5 h-5 mb-1" />
             <span className="text-[10px] font-bold">Dict.</span>
           </Link>
-          {(userRole === "hospital_admin" || userRole === "admin") && (
-            <Link href="/dashboard" className={getNavClass("/dashboard")} onClick={closeMenu}>
-              <FaTachometerAlt className="w-5 h-5 mb-1" />
-              <span className="text-[10px] font-bold">Dash</span>
+          {userRole === "hospital_admin" && (
+            <Link href="/hospital-admin" className={getNavClass("/hospital-admin")} onClick={closeMenu}>
+              <FaTachometerAlt className="w-5 h-5 mb-1 text-indigo-500" />
+              <span className="text-[10px] font-bold">Hospital</span>
+            </Link>
+          )}
+          {userRole === "admin" && (
+            <Link href="/admin" className={getNavClass("/admin")} onClick={closeMenu}>
+              <FaTachometerAlt className="w-5 h-5 mb-1 text-rose-500" />
+              <span className="text-[10px] font-bold">Admin</span>
             </Link>
           )}
         </motion.div>

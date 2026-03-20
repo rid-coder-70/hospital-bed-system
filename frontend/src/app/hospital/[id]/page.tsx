@@ -4,19 +4,26 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
-import { motion } from "framer-motion"
-import { MapPin, Phone, Mail, Bed, Activity, History, Clock, ArrowLeft, ShieldCheck, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { MapPin, Phone, Mail, Bed, Activity, History, Clock, ArrowLeft, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Navigation, X } from "lucide-react"
 import Link from "next/link"
+import { toast } from "react-hot-toast"
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
 export default function HospitalDetailsPage() {
   const params = useParams()
   const { id } = params as { id: string }
   const [hospital, setHospital] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [dispatchLoading, setDispatchLoading] = useState(false)
+  const [dispatchResult, setDispatchResult] = useState<any[] | null>(null)
+  const [showDispatch, setShowDispatch] = useState(false)
+
   useEffect(() => {
     const fetchHospital = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/hospitals/${id}`)
+        const res = await fetch(`${API}/api/hospitals/${id}`)
         if (!res.ok) throw new Error("Failed to fetch")
         const data = await res.json()
         setHospital(data.data)
@@ -28,6 +35,36 @@ export default function HospitalDetailsPage() {
     }
     if (id) fetchHospital()
   }, [id])
+
+  const handleSimulateDispatch = async () => {
+    if (!hospital?.location?.lat) {
+      toast.error("Hospital location not available for routing")
+      return
+    }
+    setDispatchLoading(true)
+    setShowDispatch(true)
+    try {
+      const res = await fetch(`${API}/api/beds/route`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientLocation: hospital.location,
+          requiredIcu: hospital.availableIcuBeds === 0,
+          priority: "high"
+        })
+      })
+      if (!res.ok) throw new Error("Routing failed")
+      const data = await res.json()
+      setDispatchResult(data.data?.top_recommendations || [])
+      toast.success("AI routing complete!")
+    } catch (err: any) {
+      toast.error(err.message || "AI routing service unavailable")
+      setShowDispatch(false)
+    } finally {
+      setDispatchLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-300">
@@ -94,9 +131,18 @@ export default function HospitalDetailsPage() {
                 {hospital.name}
               </h1>
               <div className="flex flex-col gap-3 text-gray-600 dark:text-gray-400">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 shrink-0 mt-0.5 text-gray-400 dark:text-gray-500" />
-                  <span className="text-base md:text-lg">{hospital.address || "Address unavailable"}</span>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 shrink-0 mt-0.5 text-gray-400 dark:text-gray-500" />
+                    <span className="text-base md:text-lg">{hospital.address || "Address unavailable"}</span>
+                  </div>
+                  {hospital.location?.lat && (
+                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.location.lat},${hospital.location.lng}`} target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 text-sm font-bold rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
+                    >
+                      <Navigation className="w-3.5 h-3.5" /> Navigate
+                    </a>
+                  )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 mt-2">
                   <div className="flex items-center gap-2">
@@ -262,7 +308,7 @@ export default function HospitalDetailsPage() {
               )}
             </div>
           </motion.div>
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
@@ -272,15 +318,94 @@ export default function HospitalDetailsPage() {
             <ShieldCheck className="w-12 h-12 mb-6 text-indigo-300" />
             <h3 className="text-2xl font-bold mb-4">Emergency Processing</h3>
             <p className="text-indigo-100 mb-8 leading-relaxed">
-              This facility is currently connected to the HealthBed AI autonomous routing protocol. In the event of a critical patient emergency, ambulances are programatically dispatched based on distance and exact bed availability shown above.
+              This facility is connected to the HealthBed AI autonomous routing protocol. Simulate an emergency dispatch to see AI-ranked hospital recommendations based on distance and bed availability.
             </p>
-            <button className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-bold py-4 rounded-xl shadow-lg transition-colors active:scale-95">
-              Simulate Dispatch Request
-            </button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSimulateDispatch}
+              disabled={dispatchLoading}
+              className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-bold py-4 rounded-xl shadow-lg transition-colors active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2"
+            >
+              {dispatchLoading ? (
+                <><span className="animate-spin border-2 border-indigo-400 border-t-indigo-700 rounded-full w-5 h-5"></span> Running AI Routing...</>
+              ) : (
+                <><Navigation className="w-5 h-5" /> Simulate Dispatch Request</>
+              )}
+            </motion.button>
           </motion.div>
         </div>
       </main>
       <Footer />
+
+      {}
+      <AnimatePresence>
+        {showDispatch && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => !dispatchLoading && setShowDispatch(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-gray-100 dark:border-slate-700 max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <Navigation className="w-5 h-5 text-indigo-500" /> AI Routing Results
+                </h3>
+                <button onClick={() => setShowDispatch(false)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-slate-700 transition">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {dispatchLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-500 font-medium">Computing optimal routes...</p>
+                </div>
+              ) : dispatchResult && dispatchResult.length > 0 ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Top {dispatchResult.length} hospitals ranked by AI score (distance + bed availability):</p>
+                  {dispatchResult.map((h: any, i: number) => (
+                    <div key={h.id} className={`p-4 rounded-2xl border ${i === 0 ? 'border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${i === 0 ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}>#{i + 1}</span>
+                          <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm">{h.name}</h4>
+                        </div>
+                        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/40 px-2 py-1 rounded-lg">Score: {(h.score * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400 mt-2">
+                        <div className="text-center bg-white dark:bg-slate-900 rounded-xl p-2 border border-gray-200 dark:border-slate-700">
+                          <p className="font-black text-lg text-blue-600 dark:text-blue-400">{h.available_beds}</p>
+                          <p>Gen Beds</p>
+                        </div>
+                        <div className="text-center bg-white dark:bg-slate-900 rounded-xl p-2 border border-gray-200 dark:border-slate-700">
+                          <p className="font-black text-lg text-rose-600 dark:text-rose-400">{h.available_icu_beds}</p>
+                          <p>ICU Beds</p>
+                        </div>
+                        <div className="text-center bg-white dark:bg-slate-900 rounded-xl p-2 border border-gray-200 dark:border-slate-700">
+                          <p className="font-black text-lg text-emerald-600 dark:text-emerald-400">{h.eta_minutes}m</p>
+                          <p>ETA</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <XCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>No available hospitals found for routing.</p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -16,8 +16,9 @@ export default function HospitalPage() {
   const [isLocating, setIsLocating] = useState(false)
   useEffect(() => {
     const fetchHospitals = async () => {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
       try {
-        const res = await fetch("http://localhost:5000/api/hospitals")
+        const res = await fetch(`${API}/api/hospitals`)
         if (!res.ok) throw new Error("Failed to fetch")
         const data = await res.json()
         setHospitals(data.data || [])
@@ -233,9 +234,19 @@ export default function HospitalPage() {
                       </div>
                     </div>
                     <div className="mt-auto flex items-center justify-between pt-4 md:pt-5 border-t border-gray-100 dark:border-slate-800 text-left">
-                      <div className="flex items-center gap-2 text-xs md:text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-slate-700">
-                        <Phone className="w-3.5 h-3.5" />
-                        <span className="font-medium">{hospital.contact?.phone || "N/A"}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 text-xs md:text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-slate-700">
+                          <Phone className="w-3.5 h-3.5" />
+                          <span className="font-medium whitespace-nowrap">{hospital.contact?.phone || "N/A"}</span>
+                        </div>
+                        {hospital.location?.lat && (
+                          <a href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.location.lat},${hospital.location.lng}`} target="_blank" rel="noreferrer"
+                            className="flex items-center justify-center p-1.5 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full transition-colors border border-blue-100 dark:border-blue-900/50"
+                            title="Get Directions"
+                          >
+                            <MapPin className="w-4 h-4" />
+                          </a>
+                        )}
                       </div>
                       <Link href={`/hospital/${hospital.id}`}>
                         <motion.button 

@@ -1,25 +1,27 @@
--- ============================================================
--- AI Hospital Bed Availability System - Database Schema
--- ============================================================
+
+
+
+
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================================
--- USERS
--- ============================================================
+
+
+
 CREATE TABLE IF NOT EXISTS users (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name          TEXT NOT NULL,
   email         TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'dispatcher', 'hospital_admin')),
+  role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'hospital_admin')),
+  hospital_id   UUID,  -- FK set after hospitals table creation (see below)
   created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================
--- HOSPITALS
--- ============================================================
+
+
+
 CREATE TABLE IF NOT EXISTS hospitals (
   id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name                TEXT NOT NULL,
@@ -38,9 +40,22 @@ CREATE TABLE IF NOT EXISTS hospitals (
   created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================
--- AMBULANCES
--- ============================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_users_hospital'
+  ) THEN
+    ALTER TABLE users
+      ADD CONSTRAINT fk_users_hospital
+      FOREIGN KEY (hospital_id) REFERENCES hospitals(id) ON DELETE SET NULL;
+  END IF;
+END$$;
+
+
+
+
 CREATE TABLE IF NOT EXISTS ambulances (
   id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   vehicle_number   TEXT NOT NULL UNIQUE,
@@ -54,9 +69,9 @@ CREATE TABLE IF NOT EXISTS ambulances (
   created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================
--- AMBULANCE REQUESTS
--- ============================================================
+
+
+
 CREATE TABLE IF NOT EXISTS ambulance_requests (
   id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   patient_lat         DOUBLE PRECISION NOT NULL,
@@ -73,9 +88,9 @@ CREATE TABLE IF NOT EXISTS ambulance_requests (
   updated_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================
--- BED UPDATE EVENTS (audit log)
--- ============================================================
+
+
+
 CREATE TABLE IF NOT EXISTS bed_update_events (
   id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   hospital_id         UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
@@ -87,11 +102,12 @@ CREATE TABLE IF NOT EXISTS bed_update_events (
   timestamp           TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================
--- INDEXES
--- ============================================================
+
+
+
 CREATE INDEX IF NOT EXISTS idx_hospitals_location     ON hospitals (lat, lng);
 CREATE INDEX IF NOT EXISTS idx_hospitals_available    ON hospitals (available_beds, available_icu_beds);
 CREATE INDEX IF NOT EXISTS idx_ambulances_status      ON ambulances (status);
 CREATE INDEX IF NOT EXISTS idx_requests_status        ON ambulance_requests (status);
 CREATE INDEX IF NOT EXISTS idx_bed_events_hospital    ON bed_update_events (hospital_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_users_hospital         ON users (hospital_id);

@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { search, minBeds, hasIcu } = req.query;
+    const { search, minBeds, hasIcu, limit = 50, offset = 0 } = req.query;
 
     let query = `
       SELECT
@@ -33,6 +33,9 @@ router.get('/', async (req, res) => {
     }
 
     query += ' ORDER BY available_beds DESC';
+    
+    params.push(parseInt(limit), parseInt(offset));
+    query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
 
     const { rows } = await db.query(query, params);
 

@@ -4,7 +4,7 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/request', async (req, res) => {
+router.post('/request', authMiddleware, async (req, res) => {
   try {
     const {
       patientLocation, requiredIcu, priority,
@@ -15,7 +15,7 @@ router.post('/request', async (req, res) => {
       return res.status(400).json({ error: 'patientLocation with lat/lng is required' });
     }
 
-    // Find nearest hospitals using Haversine-approximation (pure SQL)
+
     const { rows: hospitals } = await db.query(`
       SELECT
         id, name, address, lat, lng,
@@ -34,7 +34,7 @@ router.post('/request', async (req, res) => {
       LIMIT 5
     `, [patientLocation.lat, patientLocation.lng]);
 
-    // Create the request record
+
     const { rows } = await db.query(
       `INSERT INTO ambulance_requests
          (patient_lat, patient_lng, patient_name, patient_phone, required_icu, priority, notes)
@@ -53,7 +53,7 @@ router.post('/request', async (req, res) => {
 
     const requestId = rows[0].id;
 
-    // Emit real-time event to dispatchers
+
     req.io.emit('newAmbulanceRequest', {
       requestId,
       patientLocation,
@@ -82,8 +82,8 @@ router.post('/request', async (req, res) => {
   }
 });
 
-// ── GET /api/ambulance/nearest ────────────────────────────────
-// Find nearest available ambulance for a given lat/lng
+
+
 router.get('/nearest', async (req, res) => {
   try {
     const { lat, lng } = req.query;
@@ -131,8 +131,8 @@ router.get('/nearest', async (req, res) => {
   }
 });
 
-// ── GET /api/ambulance/requests ───────────────────────────────
-// List ambulance requests (admin/dispatcher)
+
+
 router.get('/requests', authMiddleware, requireRole('admin', 'dispatcher'), async (req, res) => {
   try {
     const { status, limit = 50, offset = 0 } = req.query;
@@ -157,8 +157,8 @@ router.get('/requests', authMiddleware, requireRole('admin', 'dispatcher'), asyn
   }
 });
 
-// ── PUT /api/ambulance/requests/:id ──────────────────────────
-// Update ambulance request status (assign ambulance/hospital)
+
+
 router.put('/requests/:id', authMiddleware, requireRole('admin', 'dispatcher'), async (req, res) => {
   try {
     const { status, assignedAmbulance, assignedHospital } = req.body;
@@ -176,7 +176,7 @@ router.put('/requests/:id', authMiddleware, requireRole('admin', 'dispatcher'), 
 
     if (rows.length === 0) return res.status(404).json({ error: 'Request not found' });
 
-    // If ambulance assigned, update its status to busy
+
     if (assignedAmbulance) {
       await db.query(
         "UPDATE ambulances SET status = 'busy' WHERE id = $1",
@@ -191,8 +191,8 @@ router.put('/requests/:id', authMiddleware, requireRole('admin', 'dispatcher'), 
   }
 });
 
-// ── GET /api/ambulance/fleet ──────────────────────────────────
-// List all ambulances
+
+
 router.get('/fleet', authMiddleware, requireRole('admin', 'dispatcher'), async (req, res) => {
   try {
     const { rows } = await db.query(

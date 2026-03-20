@@ -110,6 +110,46 @@ def compute_route(request: RoutingRequest):
         top_recommendations=rankings[:5]
     )
 
+class TurnoverPrediction(BaseModel):
+    hospital_id: str
+    hospital_name: str
+    current_occupancy: float
+    predicted_turnover_rate_24h: float
+    predicted_available_beds_tomorrow: int
+    confidence_score: float
+
+@app.get("/predict-turnover/{hospital_id}", response_model=TurnoverPrediction)
+def predict_turnover(hospital_id: str, name: str, current_beds: int, total_beds: int):
+    """
+    Mock ML model endpoint to predict bed turnover.
+    In a real system, this would load a trained Scikit-Learn or XGBoost model
+    and predict based on historical admission/discharge rates, day of week, etc.
+    """
+    if total_beds == 0:
+        raise HTTPException(status_code=400, detail="Total beds cannot be zero")
+        
+    occupancy = 1.0 - (current_beds / total_beds)
+    
+    # Mock some predictive logic: high occupancy = faster turnover (more discharges)
+    # just an algorithmic stand-in for an ML model
+    base_turnover = 0.15 # 15% turnover base
+    if occupancy > 0.8:
+        base_turnover = 0.25
+    
+    # generate a pseudo-random confidence score based on id string length
+    confidence = 0.85 + (len(hospital_id) % 10) / 100.0
+    
+    predicted_avail = min(total_beds, current_beds + int(total_beds * base_turnover))
+    
+    return TurnoverPrediction(
+        hospital_id=hospital_id,
+        hospital_name=name,
+        current_occupancy=round(occupancy, 2),
+        predicted_turnover_rate_24h=round(base_turnover, 2),
+        predicted_available_beds_tomorrow=predicted_avail,
+        confidence_score=round(confidence, 2)
+    )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

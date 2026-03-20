@@ -3,16 +3,56 @@ const bcrypt   = require('bcrypt');
 const jwt      = require('jsonwebtoken');
 const db       = require('../config/db');
 const { JWT_SECRET } = require('../middleware/auth');
+const z        = require('zod');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
 
-router.post('/signup', async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: { error: 'Too many requests. Please try again in 15 minutes.' }
+});
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'name, email, and password are required' });
+
+const signupSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.enum(['user', 'hospital_admin']).optional(), // admin cannot self-register
+  hospitalId: z.union([z.string().uuid("Invalid hospital ID"), z.literal("")]).optional(), // for hospital_admin
+});
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(1, "Password is required"),
+});
+
+
+router.post('/signup', authLimiter, async (req, res) => {
+  try {
+    const parsed = signupSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    let { name, email, password, role, hospitalId } = parsed.data;
+    const userRole = role || 'user';
+
+
+    if (userRole === 'hospital_admin' && !hospitalId) {
+      return res.status(400).json({ error: 'Hospital selection is required for Hospital Admin accounts' });
+    }
+    
+
+    if (hospitalId === "") hospitalId = null;
+
+
+    if (hospitalId) {
+      const hosp = await db.query('SELECT id, name FROM hospitals WHERE id = $1 AND is_active = TRUE', [hospitalId]);
+      if (hosp.rows.length === 0) {
+        return res.status(400).json({ error: 'Selected hospital not found or is inactive' });
+      }
     }
 
     const existing = await db.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -20,21 +60,18 @@ router.post('/signup', async (req, res) => {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
-    const allowedRoles = ['user', 'dispatcher', 'hospital_admin'];
-    const userRole = allowedRoles.includes(role) ? role : 'user';
-
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     const { rows } = await db.query(
-      `INSERT INTO users (name, email, password_hash, role)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, role, created_at`,
-      [name, email, passwordHash, userRole]
+      `INSERT INTO users (name, email, password_hash, role, hospital_id)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, email, role, hospital_id, created_at`,
+      [name, email, passwordHash, userRole, hospitalId || null]
     );
 
     const user  = rows[0];
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, name: user.name },
+      { id: user.id, email: user.email, role: user.role, name: user.name, hospitalId: user.hospital_id },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -46,16 +83,20 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'email and password are required' });
+router.post('/login', authLimiter, async (req, res) => {
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.errors[0].message });
     }
+    const { email, password } = parsed.data;
 
     const { rows } = await db.query(
-      'SELECT * FROM users WHERE email = $1',
+      `SELECT u.*, h.name AS hospital_name
+       FROM users u
+       LEFT JOIN hospitals h ON h.id = u.hospital_id
+       WHERE u.email = $1`,
       [email]
     );
 
@@ -71,7 +112,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, name: user.name },
+      { id: user.id, email: user.email, role: user.role, name: user.name, hospitalId: user.hospital_id },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -84,10 +125,14 @@ router.post('/login', async (req, res) => {
   }
 });
 
+
 router.get('/me', require('../middleware/auth').authMiddleware, async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT id, name, email, role, created_at FROM users WHERE id = $1',
+      `SELECT u.id, u.name, u.email, u.role, u.hospital_id, u.created_at, h.name AS hospital_name
+       FROM users u
+       LEFT JOIN hospitals h ON h.id = u.hospital_id
+       WHERE u.id = $1`,
       [req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
