@@ -20,8 +20,8 @@ const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email format"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(['user', 'hospital_admin']).optional(), // admin cannot self-register
-  hospitalId: z.union([z.string().uuid("Invalid hospital ID"), z.literal("")]).optional(), // for hospital_admin
+  role: z.enum(['user', 'hospital_admin']).optional(),
+  hospitalId: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -38,12 +38,7 @@ router.post('/signup', authLimiter, async (req, res) => {
     }
     let { name, email, password, role, hospitalId } = parsed.data;
     const userRole = role || 'user';
-
-
-    if (userRole === 'hospital_admin' && !hospitalId) {
-      return res.status(400).json({ error: 'Hospital selection is required for Hospital Admin accounts' });
-    }
-    
+    const userStatus = userRole === 'hospital_admin' ? 'pending' : 'approved';
 
     if (hospitalId === "") hospitalId = null;
 
@@ -63,13 +58,19 @@ router.post('/signup', authLimiter, async (req, res) => {
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     const { rows } = await db.query(
-      `INSERT INTO users (name, email, password_hash, role, hospital_id)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, email, role, hospital_id, created_at`,
-      [name, email, passwordHash, userRole, hospitalId || null]
+      `INSERT INTO users (name, email, password_hash, role, hospital_id, status)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, email, role, hospital_id, status, created_at`,
+      [name, email, passwordHash, userRole, hospitalId || null, userStatus]
     );
 
-    const user  = rows[0];
+    const user = rows[0];
+
+    if (userStatus === 'pending') {
+      return res.status(201).json({
+        data: { pending: true, message: 'Your hospital admin account request has been submitted. Please wait for system administrator approval.' }
+      });
+    }
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, name: user.name, hospitalId: user.hospital_id },
       JWT_SECRET,
@@ -109,6 +110,13 @@ router.post('/login', authLimiter, async (req, res) => {
 
     if (!match) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (user.status === 'pending') {
+      return res.status(403).json({ error: 'Your account is pending approval by the system administrator. Please check back later.' });
+    }
+    if (user.status === 'rejected') {
+      return res.status(403).json({ error: 'Your account application was rejected. Please contact the system administrator.' });
     }
 
     const token = jwt.sign(

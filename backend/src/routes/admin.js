@@ -177,4 +177,60 @@ router.put('/hospitals/:id/toggle', async (req, res) => {
   }
 });
 
+
+router.get('/pending-admins', async (_req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT u.id, u.name, u.email, u.role, u.hospital_id, u.status, u.created_at,
+              h.name AS hospital_name
+       FROM users u
+       LEFT JOIN hospitals h ON h.id = u.hospital_id
+       WHERE u.role = 'hospital_admin' AND u.status = 'pending'
+       ORDER BY u.created_at ASC`
+    );
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+router.put('/approve-admin/:id', async (req, res) => {
+  try {
+    const { hospitalId } = req.body;
+    if (!hospitalId) return res.status(400).json({ error: 'hospitalId is required for approval' });
+
+    const hosp = await db.query('SELECT id, name FROM hospitals WHERE id = $1 AND is_active = TRUE', [hospitalId]);
+    if (hosp.rows.length === 0) return res.status(404).json({ error: 'Hospital not found or inactive' });
+
+    const { rows } = await db.query(
+      `UPDATE users SET status = 'approved', hospital_id = $1, updated_at = NOW()
+       WHERE id = $2 AND role = 'hospital_admin'
+       RETURNING id, name, email, role, hospital_id, status`,
+      [hospitalId, req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Pending admin not found' });
+    res.json({ data: rows[0] });
+  } catch (err) {
+    console.error('Approve admin error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+router.put('/reject-admin/:id', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `UPDATE users SET status = 'rejected', updated_at = NOW()
+       WHERE id = $1 AND role = 'hospital_admin'
+       RETURNING id, name, email, status`,
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Pending admin not found' });
+    res.json({ data: rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

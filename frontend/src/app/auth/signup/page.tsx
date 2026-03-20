@@ -41,10 +41,6 @@ export default function SignupPage() {
     e.preventDefault()
     if (password !== confirmPassword) { toast.error("Passwords do not match!"); return }
     if (password.length < 6) { toast.error("Password must be at least 6 characters"); return }
-    if (signupRole === "hospital_admin" && !selectedHospital) {
-      toast.error("Please select your hospital")
-      return
-    }
     setLoading(true)
     try {
       const res = await fetch(`${API}/api/auth/signup`, {
@@ -55,11 +51,17 @@ export default function SignupPage() {
           email,
           password,
           role: signupRole,
-          hospitalId: signupRole === "hospital_admin" ? selectedHospital : undefined
+          hospitalId: signupRole === "hospital_admin" ? (selectedHospital || undefined) : undefined
         })
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Signup failed")
+      // Hospital admin accounts are pending approval
+      if (result.data?.pending) {
+        toast.success("Application submitted! Awaiting admin approval.", { duration: 5000 })
+        window.location.href = "/auth/pending"
+        return
+      }
       toast.success("Account created! Please log in.")
       window.location.href = "/auth/login"
     } catch (err: any) {

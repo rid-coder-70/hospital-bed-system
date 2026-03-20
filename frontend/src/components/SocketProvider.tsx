@@ -48,7 +48,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socket.on("connect", () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
 
-    // Request Notification permission silently on mount
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === "default") {
         Notification.requestPermission();

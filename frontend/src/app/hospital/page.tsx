@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Search, MapPin, Bed, Activity, Phone, ShieldPlus, ChevronRight, CheckCircle2, XCircle, Navigation, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "react-hot-toast"
+import HospitalMap from "@/components/HospitalMap"
 
 export default function HospitalPage() {
   const [hospitals, setHospitals] = useState<any[]>([])
@@ -142,6 +143,13 @@ export default function HospitalPage() {
             </div>
           </div>
         </motion.div>
+
+        {!loading && (
+          <div className="mb-10 w-full rounded-3xl overflow-hidden animate-fade-in-up border border-gray-200 dark:border-slate-800 shadow-sm relative z-0">
+             <HospitalMap hospitals={filteredHospitals} />
+          </div>
+        )}
+
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3, 4, 5, 6].map((idx) => (

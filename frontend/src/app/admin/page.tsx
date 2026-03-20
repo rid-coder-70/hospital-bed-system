@@ -6,14 +6,14 @@ import Footer from "@/components/Footer"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   ShieldCheck, Users, Building2, Bed, Activity, Trash2,
-  UserPlus, Edit3, Check, X, ChevronDown, ToggleLeft, ToggleRight
+  UserPlus, Edit3, Check, X, ChevronDown, ToggleLeft, ToggleRight, Clock, AlertTriangle
 } from "lucide-react"
 import { toast } from "react-hot-toast"
 import CountUp from "react-countup"
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
-type Tab = "overview" | "users" | "hospitals"
+type Tab = "overview" | "users" | "hospitals" | "approvals"
 
 const ROLE_COLORS: Record<string, string> = {
   admin:          "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400",
@@ -32,7 +32,8 @@ export default function AdminPage() {
   const [hospitals, setHospitals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
-  const [hospitalsList, setHospitalsList] = useState<any[]>([]) // for dropdown
+  const [pendingAdmins, setPendingAdmins] = useState<any[]>([])
+  const [approvalHospitals, setApprovalHospitals] = useState<Record<string, string>>({})
 
 
   const [showCreate, setShowCreate] = useState(false)
@@ -64,11 +65,11 @@ export default function AdminPage() {
     } catch {}
   }, [])
 
-  const fetchHospitalsDropdown = useCallback(async () => {
+  const fetchPendingAdmins = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/hospitals?limit=100`)
+      const res = await fetch(`${API}/api/admin/pending-admins`, { headers: { Authorization: `Bearer ${getToken()}` } })
       const data = await res.json()
-      setHospitalsList(data.data || [])
+      setPendingAdmins(data.data || [])
     } catch {}
   }, [])
 
@@ -80,8 +81,8 @@ export default function AdminPage() {
       return
     }
     setAuthorized(true)
-    Promise.all([fetchStats(), fetchUsers(), fetchHospitals(), fetchHospitalsDropdown()]).finally(() => setLoading(false))
-  }, [fetchStats, fetchUsers, fetchHospitals, fetchHospitalsDropdown])
+    Promise.all([fetchStats(), fetchUsers(), fetchHospitals(), fetchPendingAdmins()]).finally(() => setLoading(false))
+  }, [fetchStats, fetchUsers, fetchHospitals, fetchPendingAdmins])
 
   const handleDeleteUser = async (userId: string, name: string) => {
     if (!confirm(`Are you sure you want to delete "${name}"?`)) return
@@ -145,6 +146,38 @@ export default function AdminPage() {
     }
   }
 
+  const handleApproveAdmin = async (userId: string, userName: string) => {
+    const hospitalId = approvalHospitals[userId]
+    if (!hospitalId) return toast.error("Please select a hospital to assign before approving")
+    try {
+      const res = await fetch(`${API}/api/admin/approve-admin/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ hospitalId })
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
+      setPendingAdmins(prev => prev.filter(a => a.id !== userId))
+      toast.success(`✅ ${userName} approved as Hospital Admin!`)
+    } catch (err: any) {
+      toast.error(err.message || "Approval failed")
+    }
+  }
+
+  const handleRejectAdmin = async (userId: string, userName: string) => {
+    if (!confirm(`Reject "${userName}"'s Hospital Admin application?`)) return
+    try {
+      const res = await fetch(`${API}/api/admin/reject-admin/${userId}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${getToken()}` }
+      })
+      if (!res.ok) throw new Error()
+      setPendingAdmins(prev => prev.filter(a => a.id !== userId))
+      toast.success(`${userName}'s application rejected.`)
+    } catch {
+      toast.error("Rejection failed")
+    }
+  }
+
   if (!authorized || loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center">
@@ -156,8 +189,9 @@ export default function AdminPage() {
     )
   }
 
-  const TABS: { key: Tab; label: string; icon: any }[] = [
+  const TABS: { key: Tab; label: string; icon: any; badge?: number }[] = [
     { key: "overview", label: "Overview", icon: Activity },
+    { key: "approvals", label: "Approvals", icon: Clock, badge: pendingAdmins.length },
     { key: "users", label: `Users (${users.length})`, icon: Users },
     { key: "hospitals", label: `Hospitals (${hospitals.length})`, icon: Building2 },
   ]
@@ -178,17 +212,97 @@ export default function AdminPage() {
 
         {}
         <div className="flex gap-1 bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 mb-8 w-fit">
-          {TABS.map(t => {
+        {TABS.map(t => {
             const Icon = t.icon
             const isActive = tab === t.key
             return (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${isActive ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}>
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 relative ${isActive ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}>
                 <Icon className="w-4 h-4" />{t.label}
+                {t.badge && t.badge > 0 ? (
+                  <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">{t.badge}</span>
+                ) : null}
               </button>
             )
           })}
         </div>
+
+        {}
+        {tab === "approvals" && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 flex items-center gap-3">
+                  <Clock className="w-7 h-7 text-amber-500" /> Pending Hospital Admin Approvals
+                </h2>
+                <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Review, assign a hospital, and approve or reject each application.</p>
+              </div>
+              {pendingAdmins.length > 0 && (
+                <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 font-black text-sm px-4 py-2 rounded-full flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> {pendingAdmins.length} Pending
+                </span>
+              )}
+            </div>
+            {pendingAdmins.length === 0 ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-16 text-center border border-gray-100 dark:border-slate-800 shadow-sm">
+                <Check className="w-14 h-14 text-emerald-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">All Clear!</h3>
+                <p className="text-gray-500 dark:text-gray-400">No pending hospital admin applications.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {pendingAdmins.map((admin: any) => (
+                  <motion.div key={admin.id} initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white dark:bg-slate-900 rounded-3xl border border-amber-200 dark:border-amber-800/30 shadow-sm overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex justify-between items-center">
+                      <div className="text-white">
+                        <p className="text-xs font-bold opacity-80 uppercase tracking-widest mb-0.5">Pending Application</p>
+                        <h3 className="font-extrabold text-xl">{admin.name}</h3>
+                      </div>
+                      <span className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+                        {new Date(admin.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="font-semibold text-gray-900 dark:text-gray-200">Email: </span>{admin.email}
+                      </p>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                          Assign to Hospital <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={approvalHospitals[admin.id] || ""}
+                          onChange={e => setApprovalHospitals(prev => ({ ...prev, [admin.id]: e.target.value }))}
+                          className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 outline-none transition"
+                        >
+                          <option value="">-- Select a hospital --</option>
+                          {hospitals.filter((h: any) => h.is_active).map((h: any) => (
+                            <option key={h.id} value={h.id}>{h.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button onClick={() => handleApproveAdmin(admin.id, admin.name)}
+                          disabled={!approvalHospitals[admin.id]}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20"
+                        >
+                          <Check className="w-5 h-5" /> Approve & Assign
+                        </button>
+                        <button onClick={() => handleRejectAdmin(admin.id, admin.name)}
+                          className="px-5 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-colors border border-rose-200 dark:border-rose-800"
+                        >
+                          <X className="w-5 h-5" /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {}
         {tab === "overview" && stats && (

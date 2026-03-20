@@ -8,6 +8,7 @@ import { motion } from "framer-motion"
 import { Building2, Bed, Activity, Save, Wifi, WifiOff, Clock, Download, Plus, Minus, AlertTriangle } from "lucide-react"
 import { toast } from "react-hot-toast"
 import CountUp from "react-countup"
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts'
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
@@ -57,7 +58,7 @@ export default function HospitalAdminPage() {
     }
   }, [])
 
-  const fetchHistory = async (hospitalId: string, token: string) => {
+  const fetchHistory = useCallback(async (hospitalId: string, token: string) => {
     try {
       const res = await fetch(`${API}/api/beds/history/${hospitalId}?limit=15`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -65,9 +66,9 @@ export default function HospitalAdminPage() {
       const data = await res.json()
       setHistoryEvents(data.data || [])
     } catch {}
-  }
+  }, [])
 
-  const fetchDispatches = async (hospitalId: string, token: string) => {
+  const fetchDispatches = useCallback(async (hospitalId: string, token: string) => {
     try {
       const res = await fetch(`${API}/api/dispatches/${hospitalId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -75,7 +76,7 @@ export default function HospitalAdminPage() {
       const data = await res.json()
       setDispatches(data.data || [])
     } catch {}
-  }
+  }, [])
 
   useEffect(() => {
     const stored = localStorage.getItem("userData")
@@ -101,55 +102,61 @@ export default function HospitalAdminPage() {
 
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken")
-    if (bedUpdates.length > 0 && hospital && token) {
-      const relevant = bedUpdates.find(u => u.hospitalId === hospital.id)
-      if (relevant) {
-        setHospital(prev => prev ? {
-          ...prev,
-          availableBeds: relevant.availableBeds,
-          availableIcuBeds: relevant.availableIcuBeds,
-          lastUpdated: relevant.lastUpdated
-        } : prev)
-        if (relevant.wardDetails) {
-          setWardDetails(relevant.wardDetails)
-        }
+    if (bedUpdates.length === 0) return
+    setHospital(prev => {
+      if (!prev) return prev
+      const relevant = bedUpdates.find(u => u.hospitalId === prev.id)
+      if (!relevant) return prev
+      if (relevant.wardDetails) {
+        setWardDetails(relevant.wardDetails)
       }
-    }
-  }, [bedUpdates, hospital])
+      return {
+        ...prev,
+        availableBeds: relevant.availableBeds,
+        availableIcuBeds: relevant.availableIcuBeds,
+        lastUpdated: relevant.lastUpdated
+      }
+    })
+  }, [bedUpdates])
 
-  // Sync Dispatches
   useEffect(() => {
-    if (!hospital) return;
+    if (!hospital || dispatchEvents.length === 0) return;
     const myNewEvents = dispatchEvents.filter(d => d.hospital_id === hospital.id);
-    if (myNewEvents.length > 0) {
-      setDispatches(prev => {
-        let copy = [...prev];
-        let changed = false;
-        myNewEvents.forEach(evt => {
-          const idx = copy.findIndex(existing => existing.id === evt.id);
-          if (idx > -1) {
-             if (JSON.stringify(copy[idx]) !== JSON.stringify(evt)) { copy[idx] = evt; changed = true; }
-          } else {
-             copy = [evt, ...copy];
-             changed = true;
-             if (evt.status === 'incoming') {
-               toast.custom(
-                 <div className="bg-red-600 text-white p-4 rounded-xl shadow-2xl flex items-center justify-between gap-4">
-                   <AlertTriangle className="w-8 h-8 animate-pulse" />
-                   <div>
-                     <h4 className="font-bold text-lg leading-tight">INCOMING DISPATCH</h4>
-                     <p className="text-sm opacity-90">{evt.patient_name} - ETA: {evt.eta_minutes}m</p>
-                   </div>
-                 </div>, { duration: 8000 }
-               )
-             }
-          }
-        });
-        return changed ? copy : prev;
+    if (myNewEvents.length === 0) return;
+
+    // Collect new (never-seen) events for toasting — do this OUTSIDE setState
+    const newIncoming: any[] = [];
+
+    setDispatches(prev => {
+      let copy = [...prev];
+      let changed = false;
+      myNewEvents.forEach(evt => {
+        const idx = copy.findIndex(existing => existing.id === evt.id);
+        if (idx > -1) {
+           if (JSON.stringify(copy[idx]) !== JSON.stringify(evt)) { copy[idx] = evt; changed = true; }
+        } else {
+           copy = [evt, ...copy];
+           changed = true;
+           if (evt.status === 'incoming') newIncoming.push(evt);
+        }
       });
-    }
-  }, [dispatchEvents, hospital])
+      return changed ? copy : prev;
+    });
+
+    // Fire toasts OUTSIDE the setState updater
+    newIncoming.forEach(evt => {
+      toast.custom(
+        <div className="bg-red-600 text-white p-4 rounded-xl shadow-2xl flex items-center gap-4">
+          <AlertTriangle className="w-8 h-8 animate-pulse shrink-0" />
+          <div>
+            <h4 className="font-bold text-lg leading-tight">INCOMING DISPATCH</h4>
+            <p className="text-sm opacity-90">{evt.patient_name} — ETA: {evt.eta_minutes}m</p>
+          </div>
+        </div>,
+        { duration: 8000 }
+      );
+    });
+  }, [dispatchEvents, hospital?.id])
 
   const handleAdjust = (type: "general" | "icu", op: "add" | "sub") => {
     setInventory(prev => ({
@@ -262,11 +269,21 @@ export default function HospitalAdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="font-semibold text-gray-600 dark:text-gray-400">Loading your hospital dashboard...</p>
-        </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col font-sans">
+        <Navbar />
+        <main className="flex-1 pt-24 md:pt-32 pb-24 md:pb-16 px-4 max-w-7xl mx-auto w-full space-y-8">
+           <div className="h-16 w-1/3 bg-gray-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+             {[1,2,3,4].map(idx => (
+               <div key={idx} className="h-32 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col justify-between animate-pulse">
+                  <div className="w-10 h-10 bg-gray-200 dark:bg-slate-800 rounded-xl"></div>
+                  <div className="w-1/2 h-4 bg-gray-200 dark:bg-slate-800 rounded mt-2"></div>
+                  <div className="w-3/4 h-8 bg-gray-200 dark:bg-slate-800 rounded mt-2"></div>
+               </div>
+             ))}
+           </div>
+           <div className="h-96 w-full bg-white dark:bg-slate-900 rounded-3xl animate-pulse shadow-sm border border-gray-100 dark:border-slate-800"></div>
+        </main>
       </div>
     )
   }
@@ -289,6 +306,12 @@ export default function HospitalAdminPage() {
 
   const genLow  = inventory.general <= 5
   const icuLow  = inventory.icu <= 2
+
+  const chartData = [...historyEvents].slice(0, 15).map(e => ({
+     time: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+     Gen: e.new_available,
+     ICU: e.new_icu_available
+  })).reverse()
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col font-sans">
@@ -336,22 +359,51 @@ export default function HospitalAdminPage() {
         </div>
 
         {}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {[
-            { label: "General Ward Occupancy", pct: occupancy, color: occupancy > 85 ? "from-rose-500 to-red-500" : "from-blue-500 to-indigo-500" },
-            { label: "ICU Occupancy", pct: icuOccupancy, color: icuOccupancy > 85 ? "from-rose-500 to-red-500" : "from-purple-500 to-pink-500" }
-          ].map((bar, i) => (
-            <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-800">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{bar.label}</span>
-                <span className={`text-sm font-black ${bar.pct > 85 ? "text-rose-600" : "text-gray-900 dark:text-gray-100"}`}>{bar.pct}%</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="col-span-1 lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
+             <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-indigo-500" /> Bed Utilization Trends
+             </h3>
+             <div className="w-full h-[250px] text-sm">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorGen" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorIcu" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#e11d48" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#e11d48" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
+                    <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
+                    <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                    <Area type="monotone" dataKey="Gen" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorGen)" />
+                    <Area type="monotone" dataKey="ICU" stroke="#e11d48" strokeWidth={3} fillOpacity={1} fill="url(#colorIcu)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+             </div>
+          </div>
+          <div className="col-span-1 space-y-4">
+            {[
+              { label: "General Ward Occupancy", pct: occupancy, color: occupancy > 85 ? "from-rose-500 to-red-500" : "from-blue-500 to-indigo-500" },
+              { label: "ICU Occupancy", pct: icuOccupancy, color: icuOccupancy > 85 ? "from-rose-500 to-red-500" : "from-purple-500 to-pink-500" }
+            ].map((bar, i) => (
+              <div key={i} className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{bar.label}</span>
+                  <span className={`text-xl font-black ${bar.pct > 85 ? "text-rose-600" : "text-gray-900 dark:text-gray-100"}`}>{bar.pct}%</span>
+                </div>
+                <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-4 overflow-hidden shadow-inner">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${bar.pct}%` }} transition={{ duration: 1.2, ease: "easeOut" }}
+                    className={`h-full rounded-full bg-gradient-to-r ${bar.color}`} />
+                </div>
               </div>
-              <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${bar.pct}%` }} transition={{ duration: 1.2, ease: "easeOut" }}
-                  className={`h-full rounded-full bg-gradient-to-r ${bar.color}`} />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {}
