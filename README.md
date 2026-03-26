@@ -1,8 +1,28 @@
-# HealthBed AI: Next-Generation Live Hospital Bed & Emergency Dispatch System 🏥⚡
+<div align="center">
+  <img src="Healthbed-ai/healthbed-ai.png" alt="HealthBed AI Hero" width="100%" max-width="800px">
+</div>
+
+# HealthBed AI: Live Hospital Bed & Emergency Dispatch System 🏥⚡
 
 This project is a highly advanced, full-stack Hospital Management & Emergency Routing web application designed to eliminate operational friction during medical crises. 
 
-Built with a **Node.js/Express backend**, **PostgreSQL database**, and a stunning **Next.js & Tailwind CSS frontend**, the platform leverages **WebSockets (Socket.io)** for millisecond-accurate live medical data broadcasting and **Pessimistic Database Locking** to securely prevent double-booking of life-critical beds.
+Built with a **Node.js/Express backend**, **PostgreSQL database**, **Python AI Microservice**, and a stunning **Next.js & Tailwind CSS frontend**, the platform leverages **WebSockets (Socket.io)** for millisecond-accurate live medical data broadcasting and **Pessimistic Database Locking** to securely prevent double-booking of life-critical beds.
+
+---
+
+## 📷 Platform Previews
+
+### 1. Find the Nearest Hospitals
+<img src="Healthbed-ai/FindHospital.png" alt="Find Hospital" width="100%">
+
+### 2. Request Emergency Dispatch
+<img src="Healthbed-ai/ToRequestEmergencyDispatch.png" alt="Emergency Dispatch" width="100%">
+
+### 3. Detailed Hospital Insights
+<img src="Healthbed-ai/HospitalDetails.png" alt="Hospital Details" width="100%">
+
+### 4. Advanced System Features
+<img src="Healthbed-ai/OurFeatuers.png" alt="Features" width="100%">
 
 ---
 
@@ -18,30 +38,22 @@ Built with a **Node.js/Express backend**, **PostgreSQL database**, and a stunnin
 - **Concurrency-Safe Reservations:** Admins can lock and reserve a bed for the incoming ambulance. Under the hood, the system uses Postgres `FOR UPDATE` pessimistic locking so two dispatchers can never accidentally overbook the last remaining bed.
 
 ### 3. AI-Assisted Routing Protocol
-- Integrates with external AI services to instantly compute the best hospital routing based on live distance/location coordinates and real-time live bed capacity.
+- Integrates with an internal Python microservice to instantly compute the best hospital routing based on live distance/location coordinates and real-time live bed capacity.
 
 ### 4. Interactive & Premium User Interface
 - Built with **Framer Motion** for liquid-smooth micro-animations.
 - **Beautiful Dark Mode** and glassmorphism styling ensuring an ultra-modern administrative experience.
-- Automated History Tracking that logs every single capacity change complete with timestamps.
 
 ---
 
-## 🛠 Tech Stack
+## 📂 Project Architecture & Modules
 
-**Frontend Architecture:**
-- Next.js 14+ (React)
-- TypeScript
-- Tailwind CSS & Framer Motion
-- Socket.io-client
-- React Hot Toast & Lucide Icons
+This repository is split into three decoupled services. Click on any module to read its specific technical instructions:
 
-**Backend & Database:**
-- Node.js & Express.js
-- PostgreSQL (pg)
-- Socket.io (Real-time events)
-- JSON Web Tokens (JWT) & bcrypt (Authentication)
-- Zod (Runtime type checking)
+- 🎨 **[`/frontend` README](frontend/README.md)**: The Next.js reactive UI application (Vercel deployment ready).
+- ⚙️ **[`/backend` README](backend/README.md)**: The RESTful API layer and WebSocket server (Uses PostgreSQL).
+- 🧠 **[`/ai-service` README](ai-service/README.md)**: The Python FastAPI mathematical routing engine.
+- 💾 **`/database`**: Raw `schema.sql` and `seed-data.sql` for rapid local scaling (Contains over 40+ mapped hospitals!).
 
 ---
 
@@ -50,14 +62,6 @@ Built with a **Node.js/Express backend**, **PostgreSQL database**, and a stunnin
 Explore the deep technical mechanics driving HealthBed AI:
 1. **[System Architecture & Data Flow](docs/architecture.md)** — Explores the WebSocket event bus topology and real-time synchronization flows.
 2. **[System Design & Core Mechanisms](docs/system-design.md)** — Deep dive into our Pessimistic Locking database strategy and dynamic JSONB capacity engine.
-
----
-
-## 📂 Project Structure
-
-- `/backend`: The RESTful API layer and WebSocket server.
-- `/frontend`: The Next.js reactive UI application.
-- `/database`: Raw `schema.sql` and `seed-data.sql` for rapid local scaling (Contains over 40+ mapped hospitals!).
 
 ---
 
@@ -78,25 +82,14 @@ Explore the deep technical mechanics driving HealthBed AI:
    cd backend
    npm install
    ```
-2. Create a `.env` file in the `backend` folder (you can copy `.env.example`):
-   ```
-   PORT=5000
-   NODE_ENV=development
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_NAME=hospital_bed_db
-   DB_USER=postgres
-   DB_PASSWORD=your_postgres_password
-   JWT_SECRET=super_secret_dev_key
-   ```
+2. Create a `.env` file in the `backend` folder (you can copy `.env.example`).
 3. Start the backend development server:
    ```bash
    npm run dev
    ```
-   *(Runs on http://localhost:5000)*
 
 ### 3. Frontend UI Setup
-1. Open a new terminal and navigate to the frontend:
+1. Navigate to the frontend:
    ```bash
    cd frontend
    npm install
@@ -109,7 +102,9 @@ Explore the deep technical mechanics driving HealthBed AI:
    ```bash
    npm run dev
    ```
-   *(Runs on http://localhost:3000)*
+
+### 4. AI Service Setup
+Follow the steps in [ai-service/README.md](ai-service/README.md) to launch the `uvicorn` engine.
 
 ---
 
