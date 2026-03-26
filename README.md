@@ -1,4 +1,6 @@
 <div align="center">
+  <img src="Healthbed-ai/logo.svg" alt="HealthBed AI Logo" width="150" height="150">
+  <br/>
   <img src="Healthbed-ai/healthbed-ai.png" alt="HealthBed AI Hero" width="100%" max-width="800px">
 </div>
 

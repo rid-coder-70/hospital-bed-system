@@ -3,17 +3,20 @@
 
 
 
+DROP TABLE IF EXISTS dispatches CASCADE;
+DROP TABLE IF EXISTS ambulances CASCADE;
+DROP TABLE IF EXISTS hospitals CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS history_logs CASCADE;
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-
-
 
 CREATE TABLE IF NOT EXISTS users (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name          TEXT NOT NULL,
   email         TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'hospital_admin')),
+  role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'hospital_admin', 'dispatcher')),
   hospital_id   UUID,  -- FK set after hospitals table creation (see below)
   created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
