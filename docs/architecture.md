@@ -1,5 +1,8 @@
 # 🏛️ System Architecture & Data Flow
 
+![System Architecture](architecture.png)
+
+
 > [!NOTE]
 > HealthBed AI is built on a scalable, real-time event-driven architecture designed for high availability and millisecond-latency updates across all connected clients.
 

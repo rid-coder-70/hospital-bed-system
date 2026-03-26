@@ -1,5 +1,8 @@
 # 🔌 HealthBed AI API Documentation
 
+![API Lifecycle](api_lifecycle.png)
+
+
 > [!TIP]
 > This document describes the REST API and WebSocket events for the HealthBed AI ecosystem. The core backend is built on **Node.js + Express**, while specialized routing is handled by the **FastAPI Python Microservice**.
 

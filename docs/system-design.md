@@ -1,5 +1,8 @@
 # 🧠 System Design & Core Mechanisms
 
+![System Design](design.png)
+
+
 > [!TIP]
 > To ensure absolute reliability in life-critical medical scenarios, HealthBed AI is engineered using modern, fail-safe system design principles. This document outlines the core technical mechanisms powering the framework.
 
