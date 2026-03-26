@@ -80,12 +80,37 @@ app.use((err, _req, res, _next) => {
 registerSocketEvents(io);
 
 const PORT = process.env.PORT || 5000;
+
+app.set('trust proxy', 1);
+
 server.listen(PORT, async () => {
   try {
     await db.query('SELECT 1');
-    console.log('✅ PostgreSQL connected');
+    console.log('PostgreSQL connected');
+
+    // Auto-migrate missing columns for production
+    try {
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected'))`);
+      await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`);
+      await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('user', 'admin', 'hospital_admin', 'dispatcher'))`);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS dispatches (
+          id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          hospital_id         UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+          patient_name        TEXT NOT NULL,
+          condition_details   TEXT,
+          eta_minutes         INT NOT NULL,
+          status              TEXT NOT NULL DEFAULT 'incoming' CHECK (status IN ('incoming', 'reserved', 'arrived', 'cancelled')),
+          created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+      `);
+      console.log('Auto-migration completed');
+    } catch (migErr) {
+      console.error(' Auto-migration skipped/failed:', migErr.message);
+    }
   } catch (e) {
-    console.error('❌ PostgreSQL connection failed:', e.message);
+    console.error('PostgreSQL connection failed:', e.message);
   }
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
