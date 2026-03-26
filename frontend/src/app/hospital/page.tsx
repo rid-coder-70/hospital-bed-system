@@ -17,7 +17,7 @@ export default function HospitalPage() {
   const [isLocating, setIsLocating] = useState(false)
   useEffect(() => {
     const fetchHospitals = async () => {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+      const API = process.env.NEXT_PUBLIC_API_URL || "";
       try {
         const res = await fetch(`${API}/api/hospitals`)
         if (!res.ok) throw new Error("Failed to fetch")

@@ -9,7 +9,7 @@ import dynamic from "next/dynamic"
 import { toast } from "react-hot-toast"
 import { useSocket } from "@/components/SocketProvider"
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 
 const DispatchMap = dynamic(() => import("@/components/MapComponent"), { ssr: false, loading: () => <div className="h-full w-full bg-slate-200 animate-pulse rounded-2xl flex items-center justify-center">Loading Geospatial Data...</div> })

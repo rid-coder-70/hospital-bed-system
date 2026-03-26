@@ -9,7 +9,7 @@ import { MapPin, Phone, Mail, Bed, Activity, History, Clock, ArrowLeft, ShieldCh
 import Link from "next/link"
 import { toast } from "react-hot-toast"
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function HospitalDetailsPage() {
   const params = useParams()
@@ -386,7 +386,7 @@ export default function HospitalDetailsPage() {
             transition={{ delay: 0.4 }}
             className="bg-indigo-600 dark:bg-indigo-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-indigo-600/20"
           >
-            <div className="absolute top-0 right-0 w-full h-full bg-[url('/pattern.svg')] opacity-10 mix-blend-overlay"></div>
+            <div className="absolute top-0 right-0 w-full h-full bg-white/5 opacity-10 mix-blend-overlay"></div>
             <ShieldCheck className="w-12 h-12 mb-6 text-indigo-300" />
             <h3 className="text-2xl font-bold mb-4">Emergency Processing</h3>
             <p className="text-indigo-100 mb-8 leading-relaxed">
