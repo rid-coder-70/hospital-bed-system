@@ -11,7 +11,7 @@ import {
 import { toast } from "react-hot-toast"
 import CountUp from "react-countup"
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API = process.env.NEXT_PUBLIC_API_URL || ""
 
 type Tab = "overview" | "users" | "hospitals" | "approvals"
 

@@ -3,7 +3,9 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000";
+// NEXT_PUBLIC_SOCKET_URL must be set in your Vercel environment variables
+// e.g. https://your-backend.railway.app
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "";
 
 interface BedUpdateEvent {
   hospitalId: string;
@@ -37,10 +39,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [dispatchEvents, setDispatchEvents] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!SOCKET_URL) return; // skip if URL not configured
     const socket = io(SOCKET_URL, {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"], // polling first — required for Railway proxy
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+      path: "/socket.io",
     });
 
     socketRef.current = socket;

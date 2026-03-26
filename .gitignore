@@ -54,4 +54,6 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Secrets & credentials — never commit these!
 PRODUCTION_CREDENTIALS.txt

@@ -164,7 +164,7 @@ export default function HospitalDetailsPage() {
                     <span className="text-base md:text-lg">{hospital.address || "Address unavailable"}</span>
                   </div>
                   {hospital.location?.lat && (
-                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.location.lat},${hospital.location.lng}`} target="_blank" rel="noreferrer"
+                    <a href={`https://maps.google.com/?daddr=${hospital.location.lat},${hospital.location.lng}&directionsmode=driving`} target="_blank" rel="noreferrer"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 text-sm font-bold rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
                     >
                       <Navigation className="w-3.5 h-3.5" /> Navigate

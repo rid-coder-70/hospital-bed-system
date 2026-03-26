@@ -17,17 +17,37 @@ const app    = express();
 const server = http.createServer(app);
 
 
+// Determine allowed origins from environment variable
+// In Railway: set FRONTEND_URL=https://your-app.vercel.app
+// Multiple origins can be comma-separated: https://a.vercel.app,https://b.vercel.app
+const rawOrigins = process.env.FRONTEND_URL || '';
+const allowedOrigins = rawOrigins
+  ? rawOrigins.split(',').map(o => o.trim()).filter(Boolean)
+  : [];
+
+// CORS origin resolver — allows all in dev, specific origins in prod
+const corsOrigin = (origin, callback) => {
+  if (process.env.NODE_ENV !== 'production') return callback(null, true);
+  if (!origin) return callback(null, true); // allow non-browser requests (mobile, Postman)
+  if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+  callback(new Error(`CORS: Origin ${origin} not allowed`));
+};
+
 const io = new Server(server, {
   cors: {
-    origin : true,
+    origin: corsOrigin,
     methods: ['GET', 'POST'],
     credentials: true
   },
+  // Allow both websocket and polling transports (required for Railway proxy)
+  transports: ['polling', 'websocket'],
 });
 
 
 app.use(cors({
-  origin     : true, 
+  origin     : corsOrigin,
   credentials: true,
 }));
 app.use(express.json());

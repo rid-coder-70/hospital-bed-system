@@ -248,7 +248,7 @@ export default function HospitalPage() {
                           <span className="font-medium whitespace-nowrap">{hospital.contact?.phone || "N/A"}</span>
                         </div>
                         {hospital.location?.lat && (
-                          <a href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.location.lat},${hospital.location.lng}`} target="_blank" rel="noreferrer"
+                          <a href={`https://maps.google.com/?daddr=${hospital.location.lat},${hospital.location.lng}&directionsmode=driving`} target="_blank" rel="noreferrer"
                             className="flex items-center justify-center p-1.5 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full transition-colors border border-blue-100 dark:border-blue-900/50"
                             title="Get Directions"
                           >

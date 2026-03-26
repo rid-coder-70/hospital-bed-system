@@ -9,7 +9,7 @@ import { useState, useEffect } from "react"
 import Lottie from "lottie-react"
 import { toast } from "react-hot-toast"
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API = process.env.NEXT_PUBLIC_API_URL || ""
 
 type SignupRole = "user" | "hospital_admin"
 

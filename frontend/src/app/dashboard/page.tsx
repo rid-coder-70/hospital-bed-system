@@ -12,7 +12,7 @@ import {
 import CountUp from "react-countup"
 import { toast } from "react-hot-toast"
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API = process.env.NEXT_PUBLIC_API_URL || ""
 
 interface Stats {
   totalBeds: number

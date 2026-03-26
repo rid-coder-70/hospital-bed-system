@@ -10,7 +10,7 @@ import { toast } from "react-hot-toast"
 import CountUp from "react-countup"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts'
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API = process.env.NEXT_PUBLIC_API_URL || ""
 
 interface Hospital {
   id: string
