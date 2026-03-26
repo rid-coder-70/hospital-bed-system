@@ -1,14 +1,14 @@
-# 🏛️ System Architecture & Data Flow
+# System Architecture & Data Flow
 
 ![System Architecture](architecture.png)
 
 
 > [!NOTE]
-> HealthBed AI is built on a scalable, real-time event-driven architecture designed for high availability and millisecond-latency updates across all connected clients.
+> HealthBed AI is built on a scalable, real-time event-driven architecture designed for high availability and low-latency updates across all connected clients.
 
 ---
 
-## 🗺️ High-Level Architecture Diagram
+## High-Level Architecture Diagram
 
 ```mermaid
 graph TD
@@ -29,10 +29,10 @@ graph TD
     AIService[Python FastAPI Routing Engine]:::logic
 
     %% Real-Time Events
-    WSS["📡 WebSocket Event Bus (Socket.io)"]:::server
+    WSS["WebSocket Event Bus (Socket.io)"]:::server
 
     %% Data Layer
-    Postgres[("🐘 PostgreSQL Database")]:::storage
+    Postgres[("PostgreSQL Database")]:::storage
 
     %% Relationships
     Patient & HospitalAdmin & Dispatcher --> |REST| LoadBalancer
@@ -45,42 +45,42 @@ graph TD
     NodeServer <--> |pg pool| Postgres
 
     %% Subgraphs for visual grouping
-    subgraph "✨ UI & Delivery Layer"
+    subgraph "UI & Delivery Layer"
         Patient
         HospitalAdmin
         Dispatcher
     end
 
-    subgraph "⚙️ Processing Layer"
+    subgraph "Processing Layer"
         LoadBalancer
         NodeServer
         AIService
         WSS
     end
 
-    subgraph "💎 Persistence Layer"
+    subgraph "Persistence Layer"
         Postgres
     end
 ```
 
 ---
 
-## ⚡ Core Operational Workflows
+## Core Operational Workflows
 
 ### 1. Real-Time Bed Availability Sync
-1. **Hospital Admin** updates bed counts.
-2. The Action is sent to the Node.js backend.
-3. Backend updates the specific hospital row in PostgreSQL.
+1. **Hospital Administrator** updates bed capacities.
+2. The mutation is submitted to the Node.js backend.
+3. The backend updates the respective hospital record in PostgreSQL.
 4. The Node.js controller triggers the `Socket.io` instance to emit a `bedUpdate` event.
-5. **Result:** All connected users receive the WebSocket event and the React state instantly updates.
+5. **Result:** All connected clients receive the WebSocket event and the React state instantly synchronizes.
 
 ### 2. Autonomous Ambulance Dispatch & Reservation
 > [!IMPORTANT]
 > This flow utilizes strict database-level locking to prevent race conditions during emergencies.
 
-1. **Dispatcher** clicks "Initiate Dispatch" from the live map.
-2. Request travels to the backend `POST /api/dispatches`.
+1. **Dispatcher** initiates a dispatch sequence from the live map.
+2. Request is dispatched to the backend `POST /api/dispatches`.
 3. Backend initiates a **PostgreSQL Transaction**.
 4. A pessimistic `SELECT ... FOR UPDATE` query locks the specific hospital row.
-5. `Socket.io` fires `incomingAmbulance` alert to target hospital.
-6. **Result:** The Admin's dashboard flashes a pulsing red banner instantly.
+5. `Socket.io` fires `incomingAmbulance` alert to the target hospital.
+6. **Result:** The Administrator's dashboard reflects an incoming critical alert.

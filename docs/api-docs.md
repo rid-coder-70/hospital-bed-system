@@ -1,16 +1,16 @@
-# 🔌 HealthBed AI API Documentation
+# HealthBed AI API Documentation
 
 ![API Lifecycle](api_lifecycle.png)
 
 
 > [!TIP]
-> This document describes the REST API and WebSocket events for the HealthBed AI ecosystem. The core backend is built on **Node.js + Express**, while specialized routing is handled by the **FastAPI Python Microservice**.
+> This document describes the REST API and WebSocket events for the HealthBed AI ecosystem. The core backend is built on Node.js and Express, while specialized routing is handled by the FastAPI Python Microservice.
 
 ---
 
-## 🏗️ Core Backend API (Node.js)
+## Core Backend API (Node.js)
 
-### 📊 Hospital Directory
+### Hospital Directory
 
 #### `GET /api/hospitals`
 *   **Description:** Retrieve all registered hospitals with current live capacity.
@@ -30,11 +30,11 @@
 
 ---
 
-### 🏥 Hospital Management
+### Hospital Management
 
 #### `POST /api/beds/:hospitalId/adjust`
-*   **Description:** Manually reconcile bed counts (Internal use: Hospital Admin).
-*   **Auth Required:** Yes (Hospital Admin)
+*   **Description:** Manually reconcile bed counts (Internal use: Hospital Administrator).
+*   **Auth Required:** Yes (Hospital Administrator)
 *   **Body:**
     ```json
     { "delta": -1, "type": "general" }
@@ -43,14 +43,14 @@
 
 ---
 
-### 🚑 Emergency & Dispatch
+### Emergency & Dispatch
 
 #### `POST /api/dispatches`
 *   **Description:** Initiate an emergency ambulance reservation.
 
 ---
 
-## 🧠 AI Routing Service (FastAPI)
+## AI Routing Service (FastAPI)
 
 #### `POST /route`
 *   **Description:** Calculated ranking of hospitals based on location and priority.
@@ -62,14 +62,14 @@
     }
     ```
 
-### 🛰️ Request Lifecycle Diagram
+### Request Lifecycle Diagram
 
 ```mermaid
 sequenceDiagram
-    participant Next as 📱 Next.js Client
-    participant Node as ⚙️ Node.js API
-    participant Py as 🧠 Python AI (FastAPI)
-    participant PG as 🐘 PostgreSQL Database
+    participant Next as Next.js Client
+    participant Node as Node.js API
+    participant Py as Python AI (FastAPI)
+    participant PG as PostgreSQL Database
 
     rect rgb(240, 249, 255)
       Next->>Node: POST /api/calculate-routing
@@ -90,20 +90,20 @@ sequenceDiagram
 
 ---
 
-## 📡 Live Event-Bus (WebSockets)
+## Live Event-Bus (WebSockets)
 
 | Event Name | Type | Data | Description |
 | :--- | :--- | :--- | :--- |
 | `bedUpdate` | Broadcast | `HospitalInfo` | Sent to all clients when any hospital capacity shifts. |
-| `incomingAmbulance` | Room Target | `DispatchInfo` | Sent only to the specific Hospital Admin room. |
+| `incomingAmbulance` | Room Target | `DispatchInfo` | Sent only to the specific Hospital Administrator room. |
 
 ---
 
-## 🚦 Error Reference
+## Error Reference
 
 | Code | Meaning | Reason |
 | :--- | :--- | :--- |
 | `401` | Unauthorized | Valid JWT token missing or expired. |
-| `403` | Forbidden | Role cannot access Admin endpoints. |
+| `403` | Forbidden | Role cannot access Administrator endpoints. |
 | `409` | Conflict | Pessimistic lock failed or bed is no longer available. |
 | `422` | Validation Error | Improper JSON schema or invalid coordinates. |
