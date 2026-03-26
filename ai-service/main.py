@@ -51,6 +51,13 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     r = 6371 
     return c * r
 
+@app.get("/")
+def root():
+    return {
+        "message": "Welcome to HealthBed AI Routing Service",
+        "documentation": "Visit /docs to see and test the interactive APIs."
+    }
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "AI Routing"}
