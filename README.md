@@ -15,6 +15,7 @@ Built with a **Node.js/Express backend**, **PostgreSQL database**, **Python AI M
 ## 📷 Platform Previews
 
 ### 1. Find the Nearest Hospitals
+<img src="Healthbed-ai/OurFeatuers.png" alt="Features" width="100%">
 <img src="Healthbed-ai/FindHospital.png" alt="Find Hospital" width="100%">
 
 ### 2. Request Emergency Dispatch
@@ -23,8 +24,8 @@ Built with a **Node.js/Express backend**, **PostgreSQL database**, **Python AI M
 ### 3. Detailed Hospital Insights
 <img src="Healthbed-ai/HospitalDetails.png" alt="Hospital Details" width="100%">
 
-### 4. Advanced System Features
-<img src="Healthbed-ai/OurFeatuers.png" alt="Features" width="100%">
+
+
 
 ---
 
