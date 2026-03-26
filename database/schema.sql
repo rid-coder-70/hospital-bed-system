@@ -3,6 +3,8 @@
 
 
 
+DROP TABLE IF EXISTS bed_update_events CASCADE;
+DROP TABLE IF EXISTS ambulance_requests CASCADE;
 DROP TABLE IF EXISTS dispatches CASCADE;
 DROP TABLE IF EXISTS ambulances CASCADE;
 DROP TABLE IF EXISTS hospitals CASCADE;
@@ -17,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   email         TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'hospital_admin', 'dispatcher')),
+  status        TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected')),
   hospital_id   UUID,  -- FK set after hospitals table creation (see below)
   created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -88,6 +91,17 @@ CREATE TABLE IF NOT EXISTS ambulance_requests (
   assigned_ambulance  UUID REFERENCES ambulances(id) ON DELETE SET NULL,
   assigned_hospital   UUID REFERENCES hospitals(id) ON DELETE SET NULL,
   notes               TEXT,
+  created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS dispatches (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  hospital_id         UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+  patient_name        TEXT NOT NULL,
+  condition_details   TEXT,
+  eta_minutes         INT NOT NULL,
+  status              TEXT NOT NULL DEFAULT 'incoming' CHECK (status IN ('incoming', 'reserved', 'arrived', 'cancelled')),
   created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
