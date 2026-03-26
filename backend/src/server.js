@@ -22,8 +22,11 @@ const server = http.createServer(app);
 // Multiple origins can be comma-separated: https://a.vercel.app,https://b.vercel.app
 const rawOrigins = process.env.FRONTEND_URL || '';
 const allowedOrigins = rawOrigins
-  ? rawOrigins.split(',').map(o => o.trim()).filter(Boolean)
+  ? rawOrigins.split(',').map(o => o.replace(/\/$/, '').trim()).filter(Boolean)
   : [];
+
+// Automatically trust the known vercel deployment, stripping any accidents
+allowedOrigins.push('https://healthbed-ai.vercel.app');
 
 // CORS origin resolver — allows all in dev, specific origins in prod
 const corsOrigin = (origin, callback) => {
