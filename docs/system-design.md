@@ -10,23 +10,41 @@
 
 In a live-dispatch environment, two ambulance dispatchers might attempt to claim the exact same "last available bed" at the exact same millisecond. Traditional SQL `SELECT` -> `UPDATE` flows suffer from race conditions resulting in catastrophic over-booking.
 
-**Implementation:**
-HealthBed AI tackles this at the database engine level via **PostgreSQL Pessimistic Locking** (`FOR UPDATE`).
+### 🔄 The Locking Flow Lifecycle
 
-```js
-// Backend: src/routes/dispatches.js
-await db.query('BEGIN');
+```mermaid
+sequenceDiagram
+    participant D1 as 🚑 Dispatcher 1
+    participant D2 as 🚑 Dispatcher 2
+    participant DB as 🐘 PostgreSQL Engine
+    participant App as ⚙️ Node.js API
 
-const hRes = await db.query(
-  'SELECT available_beds, available_icu_beds FROM hospitals WHERE id = $1 FOR UPDATE',
-  [hospitalId]
-);
+    rect rgb(240, 249, 255)
+      Note over D1, App: Dispatch Request 1 Starts
+      D1->>App: POST /api/dispatches
+      App->>DB: BEGIN TRANSACTION (FOR UPDATE)
+      Note right of DB: Locked Bed (ID: 101)
+    end
 
-// If available counts are <= 0 here, the transaction gracefully rolls back
-// ensuring that no virtual "overdrafting" of beds ever occurs.
+    rect rgb(254, 242, 242)
+      Note over D2, App: Dispatch Request 2 Starts
+      D2->>App: POST /api/dispatches
+      App->>DB: SELECT ... FOR UPDATE (Blocked)
+      Note right of DB: D2 Waits for Lock...
+    end
 
-await db.query('UPDATE hospitals SET available_beds = available_beds - 1 ...');
-await db.query('COMMIT');
+    rect rgb(240, 253, 244)
+      DB-->>App: Bed Count: 1 (Confirmed)
+      App->>DB: UPDATE: available_beds = 0
+      App->>DB: COMMIT
+      Note right of DB: Lock Released
+      App-->>D1: 200 OK (Success!)
+    end
+
+    rect rgb(254, 242, 242)
+      DB-->>App: Bed Count: 0 (Lock acquired by D2)
+      App-->>D2: 409 Conflict (No beds remaining)
+    end
 ```
 
 > [!NOTE]
@@ -39,11 +57,24 @@ await db.query('COMMIT');
 
 For true live situational awareness, standard HTTP polling (e.g., refreshing every 5 seconds) is far too slow and resource-heavy for emergency vehicles and command centers. HealthBed AI integrates `Socket.io` directly into the Node.js layer to establish persistent TCP bi-directional tunnels with all connected UI clients.
 
-### Event Topology:
-- **`bedUpdate` (Global Broadcast):** Emitted to all clients. When any admin updates a bed count, the exact new inventory array is blasted out. 
-- **`incomingAmbulance` (Targeted Emit):** Emitted **only** to the specific hospital receiving the dispatch. This triggers the native OS push notifications and UI alerts securely without leaking dispatch info to unauthorized sockets.
+### 🌐 WebSocket Topology
 
-*(To scale this across multiple backend instances horizontally, a `Redis adapter` can smoothly slip into the Socket.io construct).*
+```mermaid
+graph LR
+    %% Styles
+    classDef main fill:#6366F1,stroke:#4338CA,stroke-width:2px,color:#fff;
+    classDef event fill:#8B5CF6,stroke:#6D28D9,stroke-width:2px,color:#fff;
+
+    Server[Node.js Hub]:::main
+    WSS["📡 WebSocket Event Bus"]:::main
+
+    Server --> |"📣 Broadcast: 'bedUpdate'"| WSS
+    WSS --> Client1["👤 Public Patient"]
+    WSS --> Client2["👤 Medical Command"]
+
+    Server --> |"🎯 Targeted Alert: 'incomingAmbulance'"| WSS
+    WSS --> TargetHosp["🏥 Target Hospital Admin"]
+```
 
 ---
 

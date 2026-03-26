@@ -11,7 +11,6 @@
 
 #### `GET /api/hospitals`
 *   **Description:** Retrieve all registered hospitals with current live capacity.
-*   **Auth Required:** No
 *   **Response:** `200 OK`
     ```json
     [
@@ -25,10 +24,6 @@
       }
     ]
     ```
-
-#### `GET /api/hospitals/:id`
-*   **Description:** Detailed view of a single facility including individual ward stats.
-*   **Auth Required:** No
 
 ---
 
@@ -49,9 +44,6 @@
 
 #### `POST /api/dispatches`
 *   **Description:** Initiate an emergency ambulance reservation.
-*   **Auth Required:** Yes (Dispatcher / Public)
-*   **Implementation:** Uses `FOR UPDATE` pessimistic transactional locking.
-*   **Event:** Triggers `incomingAmbulance` alert to target hospital.
 
 ---
 
@@ -67,8 +59,31 @@
     }
     ```
 
-#### `GET /predict-turnover/:hospitalId`
-*   **Description:** AI-driven prediction for historical bed availability trends.
+### 🛰️ Request Lifecycle Diagram
+
+```mermaid
+sequenceDiagram
+    participant Next as 📱 Next.js Client
+    participant Node as ⚙️ Node.js API
+    participant Py as 🧠 Python AI (FastAPI)
+    participant PG as 🐘 PostgreSQL Database
+
+    rect rgb(240, 249, 255)
+      Next->>Node: POST /api/calculate-routing
+      Node->>PG: SELECT * FROM hospitals (Active)
+      PG-->>Node: Hospital Dataset
+    end
+
+    rect rgb(254, 242, 242)
+      Node->>Py: POST /route (Algorithm Query)
+      Note over Py: Processing Haversine...
+      Py-->>Node: JSON Ranking (Score/ETA)
+    end
+
+    rect rgb(240, 253, 244)
+      Node-->>Next: Top Recommendations (JSON)
+    end
+```
 
 ---
 
@@ -78,7 +93,6 @@
 | :--- | :--- | :--- | :--- |
 | `bedUpdate` | Broadcast | `HospitalInfo` | Sent to all clients when any hospital capacity shifts. |
 | `incomingAmbulance` | Room Target | `DispatchInfo` | Sent only to the specific Hospital Admin room. |
-| `dispatchAccepted` | Targeted | `StatusInfo` | Sent to the dispatcher when the hospital confirms the bed. |
 
 ---
 
@@ -87,6 +101,6 @@
 | Code | Meaning | Reason |
 | :--- | :--- | :--- |
 | `401` | Unauthorized | Valid JWT token missing or expired. |
-| `403` | Forbidden | Role (e.g. Patient) cannot access Admin endpoints. |
+| `403` | Forbidden | Role cannot access Admin endpoints. |
 | `409` | Conflict | Pessimistic lock failed or bed is no longer available. |
 | `422` | Validation Error | Improper JSON schema or invalid coordinates. |
